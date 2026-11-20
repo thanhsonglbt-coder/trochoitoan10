@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trò chơi và mô phỏng Toán 10 · SK_6</title>
+<style>
+:root{font:17px/1.5 "Segoe UI",sans-serif;color:#18332e;background:#f0f5ef;--green:#17483c;--line:#cddbd1}*{box-sizing:border-box}body{margin:0}header{background:var(--green);color:white;padding:25px max(20px,calc((100% - 1040px)/2));padding-right:20px}header p{margin:0;color:#c9e5c9}h1{margin:4px 0;font-size:clamp(1.8rem,4vw,2.6rem);line-height:1.15}main{max-width:1080px;margin:auto;padding:18px}nav,.controls{display:flex;gap:9px;flex-wrap:wrap;align-items:center}button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:8px 13px;background:#fff;color:#18332e}button[aria-current=true],button.action{background:var(--green);color:#fff;border-color:var(--green)}button:disabled{opacity:.55;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #b36520;outline-offset:2px}section{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:clamp(14px,3vw,25px)}h2{margin:0;font-size:1.5rem}p{margin:8px 0 13px}svg{width:100%;height:auto;max-height:350px;background:#f8fbf7;border:1px solid var(--line);border-radius:10px;margin:12px 0;display:block}label{display:inline-flex;gap:8px;align-items:center}input[type=number]{width:6em}input,select{background:white;color:#18332e;border:1px solid #97afa1;border-radius:6px;padding:5px}input[type=range]{accent-color:var(--green)}output{font-weight:700}.result{min-height:1.6em;color:#17483c;font-weight:600}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left}th{background:#edf5ed}.choices{display:grid;gap:8px;max-width:700px}.choices button{text-align:left}.choices .right{background:#d9efde}.choices .wrong{background:#f8dfd7}footer{text-align:center;padding:8px 16px 25px;color:#416258;font-size:.9rem}#hiddenAnswers{margin-top:10px}
+</style>
+<header><p>SK_6 · Trường THPT Đức Linh · bản 2</p><h1>Trò chơi và mô phỏng Toán 10</h1></header>
+<main>
+<nav aria-label="Hoạt động"><button data-page="venn" aria-current="true">Sơ đồ Venn</button><button data-page="triangle">Đo tam giác</button><button data-page="vector">Vectơ</button><button data-page="game">Trò chơi</button></nav>
+<section id="venn"><h2>Chuyển thẻ trong sơ đồ Venn</h2><p>Chọn một thẻ, dự đoán điều gì thay đổi, rồi chọn miền đích. Có thể kéo thẻ bằng chuột.</p>
+<svg id="vennBoard" viewBox="0 0 760 300" aria-label="Sơ đồ Venn của hai nhóm thích Toán và thích Tin"></svg>
+<div class="controls" id="destinations"></div><p class="result" id="vennStatus" aria-live="polite"></p>
+<div class="controls"><button id="counts">Hiện kết quả đếm</button><button id="vennReset">Đặt lại thẻ</button></div>
+<p id="vennCount" hidden></p></section>
+<section id="triangle" hidden><h2>Đo cạnh BC khi thay đổi góc A</h2><p>Giữ AB = 5 cm và AC = 7 cm. Bật thước, chọn đầu B rồi đầu C. So sánh số đọc trên thước với định lý cosin.</p>
+<div class="controls"><label>Góc A <input id="angle" type="range" min="20" max="150" value="60"></label><output id="angleText"></output><button id="ruler" class="action">Bật thước</button><button id="cosine">Hiện kết quả tính</button></div>
+<svg id="triBoard" viewBox="0 0 760 330" aria-label="Tam giác có hai cạnh cố định và thước chia vạch"></svg>
+<p class="result" id="triStatus" aria-live="polite"></p>
+<div class="controls"><label>Lần 1 (cm) <input id="first" type="number" min="0" max="15" step="0.1"></label><label>Lần 2 (cm) <input id="second" type="number" min="0" max="15" step="0.1"></label><button id="record">Ghi số đo</button><button id="csv">Tải bảng CSV</button></div>
+<div class="scroll"><table><thead><tr><th>Góc A</th><th>Lần 1</th><th>Lần 2</th><th>Trung bình</th><th>Sai lệch (cm)</th></tr></thead><tbody id="measurements"></tbody></table></div></section>
+<section id="vector" hidden><h2>Nhân vectơ với một số</h2><p>Đếm ô theo hai trục. Dự đoán hướng và độ dài của v = ku, rồi hiện vectơ v để kiểm tra.</p>
+<div class="controls"><label>Vectơ u <select id="base"><option value="0">(3; 0)</option><option value="4">(3; 4)</option></select></label><label>Hệ số k <input id="factor" type="range" min="-2" max="2" step=".5" value="-2"></label><output id="factorText"></output><button class="action" id="revealVector">Hiện vectơ v</button></div>
+<svg id="vecBoard" viewBox="0 0 760 365" aria-label="Lưới tọa độ và vectơ"></svg><p class="result" id="vecStatus" aria-live="polite"></p></section>
+<section id="game" hidden><h2>Thử thách Toán 10</h2><div class="controls"><label>Chủ đề <select id="topic"><option value="all">Tất cả</option><option value="logic">Mệnh đề và tập hợp</option><option value="triangle">Hệ thức lượng</option><option value="vector">Vectơ</option></select></label><button id="restart">Bắt đầu lại</button><output id="score"></output></div>
+<p id="question"></p><div id="options" class="choices"></div><p id="feedback" class="result" aria-live="polite"></p><button id="next" class="action" disabled>Câu tiếp theo</button></section>
+</main><footer>Phạm Hải Linh · Nguyễn Thành Sơn</footer>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+document.querySelectorAll("nav button").forEach(button=>button.onclick=()=>{
+ document.querySelectorAll("nav button").forEach(item=>item.setAttribute("aria-current",String(item===button)));
+ document.querySelectorAll("main section").forEach(section=>section.hidden=section.id!==button.dataset.page);
+});
+const S="http://www.w3.org/2000/svg";
+function draw(board,tag,attrs,value){
+ const node=document.createElementNS(S,tag);
+ Object.entries(attrs).forEach(([k,v])=>node.setAttribute(k,v));
+ if(value!==undefined)node.textContent=value;
+ board.append(node);return node;
+}
+function label(board,x,y,t,fill="#18332e",size=16){return draw(board,"text",{x,y,fill,"font-size":size},t)}
+function line(board,x1,y1,x2,y2,stroke="#17483c",width=3){
+ return draw(board,"line",{x1,y1,x2,y2,stroke,"stroke-width":width});
+}
+const regions=["Chỉ A","Phần giao","Chỉ B","Ngoài hai vòng"];
+const slots=[[156,109],[316,109],[461,109],[613,109]];
+let cards=[],selected=-1,showCounts=false;
+function resetVenn(){
+ cards=Array.from({length:36},(_,i)=>i<12?0:i<20?1:i<29?2:3);selected=-1;showCounts=false;
+ $("vennStatus").textContent="";renderVenn();
+}
+function counts(){
+ return regions.map((_,r)=>cards.filter(value=>value===r).length);
+}
+function move(region){
+ if(selected<0){$("vennStatus").textContent="Hãy chọn một thẻ trước.";return;}
+ cards[selected]=region;
+ $("vennStatus").textContent="Thẻ "+(selected+1)+" → "+regions[region]+".";
+ selected=-1;renderVenn();
+}
+function renderVenn(){
+ const b=$("vennBoard");b.replaceChildren();
+ draw(b,"ellipse",{cx:287,cy:154,rx:160,ry:125,fill:"#d3e8d6","fill-opacity":.6,stroke:"#30785b","stroke-width":2});
+ draw(b,"ellipse",{cx:426,cy:154,rx:160,ry:125,fill:"#cbdfea","fill-opacity":.46,stroke:"#286c89","stroke-width":2});
+ label(b,191,59,"A · Toán");label(b,452,59,"B · Tin");label(b,609,77,"Ngoài hai vòng");
+ const index=[0,0,0,0], totals=counts();
+ cards.forEach((r,i)=>{
+  const j=index[r]++,dense=totals[r]>20,cols=dense?6:4;
+  const x=slots[r][0]+(j%cols)*(dense?16:22),y=slots[r][1]+Math.floor(j/cols)*(dense?18:22);
+  const g=draw(b,"g",{tabindex:0,role:"button","aria-label":"Thẻ "+(i+1),"aria-pressed":String(i===selected),style:"cursor:grab"});
+  draw(g,"circle",{cx:x,cy:y,r:dense?7.5:10,fill:i===selected?"#efc565":"white",stroke:"#37765e"});
+  const t=label(g,x,y+3,String(i+1).padStart(2,"0"),"#18332e",dense?8:9);t.setAttribute("text-anchor","middle");
+  const choose=()=>{selected=i;[...b.querySelectorAll("g")].forEach((item,j)=>{
+   item.setAttribute("aria-pressed",String(i===j));item.firstChild.setAttribute("fill",i===j?"#efc565":"white");
+  });$("vennStatus").textContent="Đã chọn thẻ "+(i+1)+"."};
+  g.onclick=choose;
+  g.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();choose()}};
+  g.onpointerdown=e=>{if(e.pointerType!=="mouse")return;
+   const startX=e.clientX,startY=e.clientY;
+   g.setPointerCapture(e.pointerId);
+   g.onpointerup=end=>{
+    if(Math.hypot(end.clientX-startX,end.clientY-startY)<7)return;
+    const p=new DOMPoint(end.clientX,end.clientY).matrixTransform(b.getScreenCTM().inverse());
+    const a=((p.x-287)/160)**2+((p.y-154)/125)**2<=1;
+    const c=((p.x-426)/160)**2+((p.y-154)/125)**2<=1;
+    selected=i;move(a?(c?1:0):(c?2:3));
+   };
+  };
+ });
+ const [a,g,c,o]=counts();
+ $("vennCount").hidden=!showCounts;
+ $("counts").textContent=showCounts?"Ẩn kết quả đếm":"Hiện kết quả đếm";
+ $("vennCount").textContent="Chỉ A: "+a+" · Giao: "+g+" · Chỉ B: "+c+" · Ngoài: "+o+" · Hợp: "+(a+g+c);
+}
+regions.forEach((r,i)=>{const b=document.createElement("button");b.textContent=r;$("destinations").append(b);b.onclick=()=>move(i)});
+$("vennReset").onclick=resetVenn;$("counts").onclick=()=>{showCounts=!showCounts;renderVenn()};resetVenn();
+const decimal=(v,n=1)=>v.toLocaleString("vi-VN",{maximumFractionDigits:n,minimumFractionDigits:n});
+let rulerOn=false,point="",measured=false,showCosine=false;
+const rows=[];
+function groundTruth(angle){return Math.sqrt(74-70*Math.cos(angle*Math.PI/180))}
+function renderTriangle(){
+ const b=$("triBoard");b.replaceChildren();
+ const a=+$("angle").value,r=a*Math.PI/180,ax=358,ay=277,scale=31,bx=ax+5*scale,cx=ax+7*scale*Math.cos(r),cy=ay-7*scale*Math.sin(r);
+ $("angleText").value=a+"°";
+ draw(b,"polygon",{points:[ax,ay,bx,ay,cx,cy].join(" "),fill:"#deeee2",stroke:"#17483c","stroke-width":3});
+ draw(b,"path",{d:"M "+(ax+33)+" "+ay+" A 33 33 0 0 0 "+(ax+33*Math.cos(r))+" "+(ay-33*Math.sin(r)),fill:"none",stroke:"#286c89","stroke-width":2});
+ label(b,ax-17,ay+23,"A");label(b,bx+7,ay+20,"B");label(b,cx+9,cy-9,"C");
+ label(b,ax+65,ay+24,"5 cm");label(b,(ax+cx)/2-37,(ay+cy)/2-10,"7 cm");
+ if(measured){
+  const long=groundTruth(a),ux=(cx-bx)/long,uy=(cy-ay)/long;
+  line(b,bx,ay,cx,cy,"#b36520",3);
+  for(let i=0;i<=Math.floor(long*10+1e-8);i++){
+   const v=i/10,x=bx+ux*v,y=ay+uy*v,h=i%10===0?12:(i%5===0?8:4);
+   line(b,x,y,x-uy/scale*h,y+ux/scale*h,"#b36520",1);
+   if(i%10===0)label(b,x-uy/scale*20,y+ux/scale*20,String(v),"#873e12",12);
+  }
+ }
+ for(const [name,x,y] of [["B",bx,ay],["C",cx,cy]]){
+  const dot=draw(b,"circle",{cx:x,cy:y,r:11,fill:point===name?"#efc565":"#286c89",role:"button",tabindex:rulerOn?0:-1,"aria-label":"Đầu "+name,style:rulerOn?"cursor:crosshair":""});
+  const tap=()=>{if(!rulerOn)return;if(!point||measured){point=name;measured=false}else if(name!==point){measured=true}renderTriangle()};
+  dot.onclick=tap;dot.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();tap();[...b.querySelectorAll("circle")].find(d=>d.getAttribute("aria-label")==="Đầu "+name)?.focus()}};
+ }
+ $("ruler").textContent=rulerOn?"Tắt thước":"Bật thước";
+ $("cosine").textContent=showCosine?"Ẩn kết quả tính":"Hiện kết quả tính";
+ const parts=[];
+ if(rulerOn)parts.push(measured?"Đọc thước từ B đến C và ghi số đo.":point?"Đã chọn "+point+". Chọn đầu còn lại.":"Chọn B hoặc C để bắt đầu đo.");
+ if(showCosine)parts.push("BC = √(74 − 70 cos "+a+"°) ≈ "+decimal(groundTruth(a),2)+" cm.");
+ $("triStatus").textContent=parts.join(" ");
+}
+$("angle").oninput=()=>{point="";measured=false;showCosine=false;$("first").value="";$("second").value="";renderTriangle()};
+$("ruler").onclick=()=>{rulerOn=!rulerOn;point="";measured=false;renderTriangle()};
+$("cosine").onclick=()=>{showCosine=!showCosine;renderTriangle()};
+$("record").onclick=()=>{
+ const a=+$("angle").value,x=$("first").valueAsNumber,y=$("second").valueAsNumber;
+ if(![x,y].every(v=>Number.isFinite(v)&&v>0&&v<=15)){$("triStatus").textContent="Nhập hai số đo lớn hơn 0 và không vượt quá 15 cm.";return;}
+ const avg=(x+y)/2,delta=Math.abs(avg-groundTruth(a));
+ const row=[a+"°",decimal(x),decimal(y),decimal(avg,2),decimal(delta,2)];rows.push(row);
+ const tr=$("measurements").insertRow();row.forEach(value=>tr.insertCell().textContent=value);
+ $("triStatus").textContent=Math.abs(x-y)>.200001?"Đã ghi. Hai số đo chênh quá 0,2 cm. Hãy kiểm tra lại vị trí đặt thước.":"Đã ghi số đo tại "+a+"°.";
+};
+$("csv").onclick=()=>{
+ if(!rows.length){$("triStatus").textContent="Hãy ghi ít nhất một lượt đo.";return;}
+ const csv="\ufeffGóc A;Lần 1 (cm);Lần 2 (cm);Trung bình (cm);Sai lệch (cm)\r\n"+rows.map(row=>row.join(";")).join("\r\n");
+ const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+ const link=document.createElement("a");link.href=url;link.download="SK_6_Bang_do_tam_giac.csv";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+renderTriangle();
+let vectorVisible=false;
+function renderVector(){
+ const b=$("vecBoard");b.replaceChildren();
+ const k=+$("factor").value,y=+$("base").value;
+ $("factorText").value=String(k).replace(".",",");
+ const ox=380,oy=182,s=18;
+ for(let i=-19;i<=19;i++)line(b,ox+i*s,10,ox+i*s,355,"#dae6df",1);
+ for(let i=-9;i<=9;i++)line(b,35,oy+i*s,725,oy+i*s,"#dae6df",1);
+ line(b,35,oy,725,oy,"#9ab2a4",1);line(b,ox,10,ox,355,"#9ab2a4",1);
+ label(b,ox+5,oy+18,"O");label(b,727,oy-6,"x");label(b,ox+6,16,"y");
+ function arrow(x,y,color,name,offset){
+  const xx=ox+x*s,yy=oy-y*s,n=Math.hypot(xx-ox,yy-oy);
+  if(n===0){draw(b,"circle",{cx:ox,cy:oy,r:5,fill:color});label(b,ox+10,oy+36,name,color);return;}
+  let dx=(xx-ox)/n,dy=(yy-oy)/n;
+  line(b,ox,oy,xx,yy,color,4);
+  draw(b,"polygon",{points:[xx,yy,xx-12*dx-6*dy,yy-12*dy+6*dx,xx-12*dx+6*dy,yy-12*dy-6*dx].join(" "),fill:color});
+  label(b,xx+7,yy+offset,name,color);
+ }
+ if(vectorVisible&&k>1)arrow(3*k,y*k,"#b36520","v",24);
+ arrow(3,y,"#286c89","u",-9);
+ if(vectorVisible&&k<=1)arrow(3*k,y*k,"#b36520","v",24);
+ $("revealVector").textContent=vectorVisible?"Ẩn vectơ v":"Hiện vectơ v";
+ const fmt=n=>String(n).replace(".",",");
+ $("vecStatus").textContent=vectorVisible?"v = ("+fmt(3*k)+"; "+fmt(y*k)+") · Độ dài "+fmt(Math.hypot(3,y)*Math.abs(k))+" · "+(k<0?"Ngược hướng với u":k>0?"Cùng hướng với u":"Vectơ không"):"";
+}
+$("base").onchange=$("factor").oninput=()=>{vectorVisible=false;renderVector()};
+$("revealVector").onclick=()=>{vectorVisible=!vectorVisible;renderVector()};renderVector();
+const quiz=[
+ ["logic","Nếu n là bội của 6 thì n là số chẵn. Số nào bác bỏ mệnh đề đảo?",["4","6","12","18"],0,"4 chẵn nhưng không chia hết cho 6."],
+ ["logic","Có 20 em thích Toán, 17 em thích Tin, 8 em thích cả hai. Bao nhiêu em thích ít nhất một môn?",["21","29","37","45"],1,"Cộng 20 và 17 rồi trừ 8 đã đếm hai lần."],
+ ["logic","A có 20 phần tử, B có 17 phần tử. Phần giao có 8 phần tử. Có bao nhiêu phần tử chỉ thuộc A?",["8","9","12","20"],2,"Lấy 20 − 8 = 12."],
+ ["logic","Mệnh đề nào đúng với mọi số tự nhiên n?",["Nếu n chẵn thì n là bội của 4.","Nếu n là bội của 3 thì n lẻ.","Nếu n lẻ thì n là bội của 3.","Nếu n là bội của 4 thì n chẵn."],3,"Mọi số chia hết cho 4 đều chia hết cho 2."],
+ ["triangle","AB = 5, AC = 7 và góc A = 60°. BC bằng bao nhiêu?",["√39","√74","√109","12"],0,"BC² = 25 + 49 − 70 × cos 60° = 39."],
+ ["triangle","AB = 5, AC = 7 và góc A = 90°. BC bằng bao nhiêu?",["√39","√74","√109","12"],1,"Vì cos 90° = 0 nên BC² = 25 + 49."],
+ ["triangle","Giữ AB, AC cố định. Khi góc A tăng từ 60° lên 120°, điều gì xảy ra với BC?",["BC giảm.","BC giữ nguyên.","BC tăng.","BC bằng AB + AC."],2,"Cos A giảm nên BC² tăng theo định lý cosin."],
+ ["triangle","Hai lượt đo cho 6,2 cm và 6,4 cm. Kết quả tính là 6,24 cm. Sai lệch tuyệt đối bằng bao nhiêu?",["0,02 cm","0,04 cm","0,05 cm","0,06 cm"],3,"Trung bình là 6,30 cm. |6,30 − 6,24| = 0,06 cm."],
+ ["vector","Vectơ u dài 3 ô. Vectơ −2u có đặc điểm nào?",["Cùng hướng, dài 6 ô.","Ngược hướng, dài 6 ô.","Ngược hướng, dài 3 ô.","Dài −6 ô."],1,"Dấu âm đổi hướng, trị tuyệt đối 2 làm độ dài gấp đôi."],
+ ["vector","Cho u = (3; 4). Tọa độ của −2u là gì?",["(−6; 8)","(−3; −4)","(−6; −8)","(6; 8)"],2,"Nhân từng tọa độ với −2."],
+ ["vector","Cho u ≠ 0. Khi k = 0 thì ku là gì?",["Vectơ không.","Vectơ cùng hướng có độ dài 1.","Vectơ ngược hướng với u.","Vectơ u."],0,"Hai thành phần đều bằng 0."],
+ ["vector","Cho u = (3; 4). Độ dài của −2u bằng bao nhiêu?",["5","7","8","10"],3,"|u| = 5, do đó |−2u| = 10."]
+];
+let round=[],step=0,score=0;
+function begin(){round=quiz.filter(q=>$("topic").value==="all"||q[0]===$("topic").value);for(let i=round.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[round[i],round[j]]=[round[j],round[i]]}step=0;score=0;play()}
+function play(){
+ $("score").value="Đúng "+score+" / "+round.length;
+ $("feedback").textContent="";
+ $("options").replaceChildren();
+ $("next").disabled=true;
+ const q=round[step];
+ $("question").textContent=q?"Câu "+(step+1)+" / "+round.length+" · "+q[1]:"Hoàn thành. Chọn Bắt đầu lại để luyện tiếp.";
+ if(!q)return;
+ const order=q[2].map((_,i)=>i);
+ for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]]}
+ const answer=order.indexOf(q[3]);
+ order.forEach((src,i)=>{
+  const b=document.createElement("button");b.textContent=String.fromCharCode(65+i)+". "+q[2][src];$("options").append(b);
+  b.onclick=()=>{
+   [...$("options").children].forEach((c,j)=>{c.disabled=true;if(j===answer)c.className="right";else if(j===i)c.className="wrong"});
+   const correct=i===answer;score+=Number(correct);$("score").value="Đúng "+score+" / "+round.length;
+   $("feedback").textContent=(correct?"Đúng. ":"Chưa đúng. ")+q[4];$("next").disabled=false;
+   $("next").textContent=step===round.length-1?"Xem kết quả":"Câu tiếp theo";$("next").focus();
+  };
+ });
+}
+$("topic").onchange=$("restart").onclick=begin;
+$("next").onclick=()=>{step++;play()};begin();
+</script></html>

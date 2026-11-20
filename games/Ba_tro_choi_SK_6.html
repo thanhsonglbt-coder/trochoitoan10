@@ -1,0 +1,59 @@
+<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ba trò chơi · SK_6</title><style>
+body{margin:0;background:#eef5ee;color:#173b32;font:18px/1.55 'Segoe UI',sans-serif}main{max-width:860px;margin:auto;padding:24px}h1{font-size:2.2rem;line-height:1.1}section{background:white;padding:22px;border-radius:14px;margin-top:16px}button,select,input{font:inherit;padding:7px 12px;border:1px solid #89a99d;border-radius:7px;background:white;color:#173b32}button{cursor:pointer}button.primary{background:#17483c;color:white}button:disabled{opacity:.55}a{color:#17483c}nav{display:flex;flex-wrap:wrap;gap:8px}label{display:block;margin:10px 0}input{width:8em}output{display:block;font-weight:600}.board{font:600 1.15rem 'Segoe UI',sans-serif;color:#225647}small{display:block}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #b36520}
+</style><main><h1>Thử thách Toán 10</h1><p>SK_6 · Trường THPT Đức Linh · bản 2</p>
+<nav><button data-mode="rescue">Mở khóa trạm cứu hộ</button><button data-mode="errors">Bắt lỗi máy đo</button><button data-mode="rule">Đoán quy tắc bí mật</button></nav>
+<section><h2 id="title"></h2><p id="prompt"></p><p class="board" id="board"></p><div id="fields"></div><p id="link" hidden><a href="SK_6_Mo_phong_Tro_choi_Toan10.html" target="_blank" rel="noopener">Mở mô phỏng để kiểm tra</a></p><output id="message" aria-live="polite"></output><p><button id="check" class="primary">Chốt dự đoán</button> <button id="next" hidden>Lượt tiếp theo</button> <button id="reset">Chơi lại</button></p><small id="score"></small></section></main>
+<script>
+const $=id=>document.getElementById(id);
+const games={
+ rescue:{name:"Mở khóa trạm cứu hộ",items:[
+ ["Trạm 1 · Kiểm danh","20 em biết sơ cứu, 17 em biết đọc bản đồ, 8 em biết cả hai. Có bao nhiêu em biết ít nhất một kỹ năng?",[["Số học sinh",29]],"20 + 17 − 8 = 29. Trừ 8 vì các em này đã được đếm hai lần."],
+ ["Trạm 2 · Qua suối","AB = 5 km, AC = 7 km, góc A = 60°. Trên mô phỏng 1 cm ứng với 1 km. Ghi dự đoán BC (đến 0,1 km) và căn cứ vào phiếu trước khi mở mô phỏng.",[["BC dự đoán (km)",6.2,6]],"BC² = 25 + 49 − 2·5·7·cos 60° = 39, BC = √39 ≈ 6,24 km. So sánh dự đoán ban đầu của đội với kết quả và ghi vào phiếu."],
+ ["Trạm 3 · Điều khiển thiết bị","u = (3; 4). Thiết bị cần đi 6 ô sang trái và 8 ô xuống dưới. Hãy tìm k trong v = ku và độ dài của v.",[["Hệ số k",-2],["Độ dài",10]],"k = −2 đổi hướng, độ dài bằng 2 × 5 = 10."]]},
+ errors:{name:"Bắt lỗi máy đo",items:[
+ ["Báo cáo 1","AB = 5 cm, AC = 7 cm, góc A = 60°. Bạn đo từ vạch 1,0 đến 7,2 rồi báo BC = 7,2 cm. Hãy sửa số đo.",[["Số đo đúng (cm)",6.2,.051]],"Lấy số đọc cuối trừ số đọc đầu: 7,2 − 1,0 = 6,2 cm."],
+ ["Báo cáo 2","Hai cạnh từ A dài 5 và 7 cm. Góc giữa hai cạnh là 60°. Bạn dùng cos 120° nên báo √109 cm. Hãy sửa kết quả đến 0,1 cm.",[["BC (cm)",6.2,.051]],"Phải dùng góc xen giữa 60°. BC = √39 ≈ 6,2 cm."],
+ ["Báo cáo 3","Hai bạn đo 6,1 cm và 6,5 cm. Tính chênh lệch hai lần đo để quyết định có cần đo lại theo ngưỡng 0,2 cm hay không.",[["Chênh lệch (cm)",.4,.001]],"0,4 cm > 0,2 cm. Kiểm tra vạch 0 và hai đầu đoạn trước khi đo lại."]]},
+ rule:{name:"Đoán quy tắc bí mật",items:[
+ ["Lượt 1","Tìm k sao cho v = ku. Nêu dấu của k dựa vào hướng.",[["Hệ số k",-2]],"Ngược hướng, dài gấp đôi nên k = −2.","u = (3; 0)    v = (−6; 0)"],
+ ["Lượt 2","Tìm k rồi giải thích dựa vào hai tọa độ.",[["Hệ số k",.5]],"Cùng hướng, dài bằng một nửa nên k = 1/2.","u = (3; 4)    v = (1,5; 2)"],
+ ["Lượt 3","Tìm k. Sau đó tự chọn một k khác để đố bạn.",[["Hệ số k",0]],"u khác vectơ không. Để v bằng vectơ không cần k = 0.","u = (3; 4)    v = (0; 0)"]]}
+};
+let mode="rescue",index=0,points=0,stage=0;
+function fields(items){
+ $("fields").replaceChildren();
+ items.forEach(([name])=>{const label=document.createElement("label");label.textContent=name+" ";const input=document.createElement("input");input.type="number";input.step="any";label.append(input);$("fields").append(label)});
+}
+function render(){
+ const game=games[mode], item=game.items[index];stage=0;
+ $("title").textContent=game.name;
+ $("prompt").textContent=item?item[0]+" — "+item[1]:"Đã hoàn thành. Đổi trò hoặc chơi lại.";
+ $("board").textContent=item?.[4]??"";
+ $("message").textContent="";$("link").hidden=true;$("check").hidden=!item;$("check").disabled=false;$("check").textContent="Chốt dự đoán";$("next").hidden=true;
+ fields(item?.[2]??[]);
+ $("score").textContent="Số lượt hoàn thành: "+points+" / "+game.items.length;
+}
+function check(){
+ const item=games[mode].items[index], values=[...$("fields").querySelectorAll("input")].map(i=>i.valueAsNumber);
+ if(values.some(x=>!Number.isFinite(x))){$("message").textContent="Hãy điền đủ dữ liệu.";return;}
+ if(stage===0){
+  if(!values.every((value,i)=>Math.abs(value-item[2][i][1])<=(item[2][i][2]??.00001))){
+   $("message").textContent="Chưa khớp. Hãy kiểm tra lại dữ kiện và thử lại.";$("link").hidden=false;return;
+  }
+  $("link").hidden=false;
+  if(mode==="rescue"&&index===1){
+   stage=1;fields([["Số đọc trên thước (km)"],["Độ lệch tuyệt đối (km)"]]);
+   $("message").textContent="Dự đoán đã chốt: "+values[0].toLocaleString("vi-VN")+" km. Kết quả tính theo định lý côsin là √39 ≈ 6,24 km. Bật thước tại góc 60°, chọn B và C rồi ghi số đọc và độ lệch so với 6,24 km.";
+   $("check").textContent="Kiểm tra số đo";return;
+  }
+ }
+ if(stage===1&&(Math.abs(values[0]-6.24)>.24||Math.abs(values[1]-Math.abs(values[0]-6.24))>.011)){
+  $("message").textContent="Kiểm tra số đọc và lấy độ lệch tuyệt đối so với 6,24 km.";return;
+ }
+ points++;$("score").textContent="Số lượt hoàn thành: "+points+" / "+games[mode].items.length;
+ $("message").textContent=item[3];$("check").disabled=true;$("next").hidden=false;$("next").focus();
+}
+function begin(){index=0;points=0;render()}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;begin()});
+$("reset").onclick=begin;$("check").onclick=check;$("next").onclick=()=>{index++;render()};begin();
+</script></html>
