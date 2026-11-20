@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thử thách 60 giây · Games Toán 10</title><link rel="stylesheet" href="../assets/common.css">
+<style>
+.timer{height:14px;background:#e3ece5;border-radius:99px;overflow:hidden;margin:6px 0 10px}
+.timer i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#1f8a4c,#efc565 60%,#c0392b);transform-origin:left;transition:transform .25s linear}
+.combo{font-weight:800;color:var(--orange)}
+.big-q{font-size:1.25rem;font-weight:700;min-height:3.2em;margin:8px 0}
+.pop{animation:pop .3s}
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.25)}100%{transform:scale(1)}}
+</style></head>
+<body>
+<header class="top"><a class="home" href="../index.html">← Trang chủ</a><h1>⚡ Thử thách 60 giây</h1><button id="snd" class="icon" aria-label="Bật hoặc tắt âm thanh">🔊</button></header>
+<main>
+<section id="intro" class="panel">
+  <h2>Trả lời thật nhanh, thật chính xác</h2>
+  <p>Trong <b>60 giây</b>, em trả lời càng nhiều câu càng tốt về <b>tập hợp, hệ thức lượng và vectơ</b>. Câu nào cũng được tạo ngẫu nhiên nên chơi lại sẽ gặp số mới.</p>
+  <ul class="muted"><li>Mỗi câu đúng được <b>10 điểm × hệ số combo</b> (đúng liên tiếp: ×2 từ 3 câu, ×3 từ 6 câu).</li><li>Trả lời sai: mất combo và bị trừ 3 giây.</li><li>Cuối game có danh sách các câu sai kèm lời giải ngắn.</li></ul>
+  <button class="btn" id="start">Sẵn sàng, bắt đầu!</button>
+</section>
+<section id="play" class="panel" hidden>
+  <div class="hud"><span id="hTime"></span><span id="hScore"></span><span class="combo" id="hCombo"></span></div>
+  <div class="timer"><i id="tbar"></i></div>
+  <div class="big-q" id="question"></div>
+  <div class="opts grid4" id="opts"></div>
+  <div id="fb" aria-live="polite"></div>
+</section>
+</main>
+<script src="../assets/common.js"></script>
+<script>
+const {$, rand, pick, shuffle, fmt, el} = SM;
+SM.initSound();
+const TOTAL = 60;
+const COS = { 30: "√3/2", 45: "√2/2", 60: "1/2", 90: "0", 120: "−1/2", 135: "−√2/2", 150: "−√3/2" };
+function numOpts(correct, extra) {
+  const s = new Set([correct]); extra.forEach(x => { if (x !== correct && x >= 0) s.add(x); });
+  let d = 1; while (s.size < 4) { s.add(correct + d); if (s.size < 4 && correct - d >= 0) s.add(correct - d); d++; }
+  return shuffle([...s].slice(0, 4).map(String).concat([])).slice(0, 4);
+}
+// mỗi bộ sinh trả về {q, opts:[string], ans:string, exp}
+const GEN = [
+  () => { const x = rand(12, 25), y = rand(10, 22), z = rand(3, 9), u = x + y - z; return { q: `${x} em thích Toán, ${y} em thích Tin, ${z} em thích cả hai. Bao nhiêu em thích ít nhất một môn?`, ans: String(u), opts: numOpts(u, [x + y, x + y + z, x - z + y - z]), exp: `n(A ∪ B) = ${x} + ${y} − ${z} = ${u}` }; },
+  () => { const x = rand(12, 22), y = rand(10, 20), z = rand(3, 8), u = x + y - z, N = u + rand(3, 9); return { q: `Lớp ${N} em: ${x} em thích Toán, ${y} em thích Tin, ${z} em thích cả hai. Bao nhiêu em không thích môn nào?`, ans: String(N - u), opts: numOpts(N - u, [N - x - y, N - u + z, N - x]), exp: `Hợp: ${x} + ${y} − ${z} = ${u}; ngoài hợp: ${N} − ${u} = ${N - u}` }; },
+  () => { const x = rand(14, 25), z = rand(3, 9); return { q: `Nhóm A có ${x} em, trong đó ${z} em cũng thuộc nhóm B. Bao nhiêu em chỉ thuộc nhóm A?`, ans: String(x - z), opts: numOpts(x - z, [x + z, z, x]), exp: `Chỉ A = ${x} − ${z} = ${x - z}` }; },
+  () => { const b = rand(2, 9), c = rand(2, 9), A = pick([60, 90, 120]), v = A === 60 ? b * b + c * c - b * c : A === 90 ? b * b + c * c : b * b + c * c + b * c; return { q: `AB = ${b}, AC = ${c}, góc A = ${A}°. Tính BC².`, ans: String(v), opts: numOpts(v, [b * b + c * c - b * c, b * b + c * c, b * b + c * c + b * c, (b + c) * (b + c)]), exp: `BC² = ${b}² + ${c}² − 2·${b}·${c}·cos ${A}° (cos ${A}° = ${COS[A]}) = ${v}` }; },
+  () => { const A = pick(Object.keys(COS).map(Number)), wrong = shuffle(Object.keys(COS).map(Number).filter(a => a !== A)).slice(0, 3); return { q: `cos ${A}° bằng bao nhiêu?`, ans: COS[A], opts: shuffle([A, ...wrong]).map(a => COS[a]), exp: `cos ${A}° = ${COS[A]}` }; },
+  () => { const a = rand(1, 5), b = rand(-5, 5), k = pick([-3, -2, -1, 2, 3]), ans = `(${k * a}; ${k * b})`; const opts = [...new Set([ans, `(${-k * a}; ${k * b})`, `(${k * a}; ${-k * b})`, `(${k + a}; ${k + b})`, `(${a - k}; ${b - k})`])].slice(0, 4); if (!opts.includes(ans)) opts[0] = ans; return { q: `Cho u = (${a}; ${b}). Tọa độ của vectơ ${k < 0 ? "−" + (-k) : k}u là:`, ans, opts: shuffle(opts), exp: `Nhân từng tọa độ với ${k}: (${k}·${a}; ${k}·${b}) = ${ans}` }; },
+  () => { const t = pick([[3, 4, 5], [6, 8, 10], [5, 12, 13]]), k = pick([-3, -2, 2, 3, 4]), L = t[2], v = Math.abs(k) * L; return { q: `Cho u = (${t[0]}; ${t[1]}). Độ dài của vectơ ${k < 0 ? "−" + (-k) : k}u bằng bao nhiêu?`, ans: String(v), opts: numOpts(v, [k * L < 0 ? L + Math.abs(k) : k * L, Math.abs(k) + L, v + L]), exp: `|u| = ${L}; |ku| = |k|·|u| = ${Math.abs(k)}·${L} = ${v}` }; },
+  () => { const p = pick(SM.PROPS), rev = SM.holds(p.Q, p.P); let c = 0; for (let n = 1; n <= 60; n++) if (p.Q(n) && !p.P(n)) { c = n; break; } return { q: `Mệnh đề đảo của "Nếu ${p.p} thì ${p.q}" là mệnh đề:`, ans: rev ? "Đúng" : "Sai", opts: ["Đúng", "Sai"], exp: rev ? `"Nếu ${p.q} thì ${p.p}" đúng với mọi n.` : `"Nếu ${p.q} thì ${p.p}" sai, phản ví dụ n = ${c}.` }; }
+];
+let time, score, combo, bestCombo, solved, wrongs, timerId, last, locked, endAt, cur;
+
+function nextQ() {
+  let g; do { g = pick(GEN)(); } while (g.opts.length < 2 || !g.opts.includes(g.ans));
+  cur = g; locked = false;
+  $("question").textContent = g.q;
+  const box = $("opts"); box.replaceChildren(); box.className = "opts " + (g.opts.length === 2 ? "two" : "grid4");
+  g.opts.forEach(t => {
+    const b = el("button", "opt", t); box.append(b);
+    b.onclick = () => answer(b, t);
+  });
+}
+const mult = () => combo >= 6 ? 3 : combo >= 3 ? 2 : 1;
+function answer(btn, t) {
+  if (locked) return; locked = true;
+  const ok = t === cur.ans; SM.beep(ok);
+  [...$("opts").children].forEach(c => { c.disabled = true; if (c.textContent === cur.ans) c.classList.add("right"); else if (c === btn) c.classList.add("wrong"); });
+  if (ok) { const m = mult(); score += 10 * m; combo++; bestCombo = Math.max(bestCombo, combo); solved++; $("fb").replaceChildren(el("div", "fb ok", `+${10 * m} điểm${m > 1 ? " (combo ×" + m + ")" : ""}`)); }
+  else { combo = 0; endAt -= 3000; wrongs.push(cur.q + " → " + cur.exp); $("fb").replaceChildren(el("div", "fb no", "Sai: −3 giây. " + cur.exp)); }
+  hud();
+  setTimeout(() => { if (time > 0) { $("fb").replaceChildren(); nextQ(); } }, ok ? 350 : 1300);
+}
+function hud() {
+  $("hTime").textContent = `⏱ ${Math.max(0, Math.ceil(time))} giây`; $("hScore").textContent = `Điểm: ${score}`;
+  const c = $("hCombo"); c.textContent = combo >= 3 ? `🔥 Combo ×${mult()}` : combo ? `Đúng liên tiếp: ${combo}` : "";
+  $("tbar").style.transform = `scaleX(${Math.max(0, time / TOTAL)})`;
+}
+function tick() {
+  time = (endAt - performance.now()) / 1000; hud();
+  if (time <= 0) { clearInterval(timerId); finish(); }
+}
+function finish() {
+  locked = true; time = 0; hud();
+  const rep = wrongs.slice(0, 5);
+  SM.end({ id: "thu-thach-60s", title: "Hết giờ!", score, stars: SM.starsFor(score, [40, 100, 180]), unit: "điểm", mistakes: rep.length ? rep : null, again: begin });
+}
+function begin() {
+  $("intro").hidden = true; $("play").hidden = false;
+  score = 0; combo = 0; bestCombo = 0; solved = 0; wrongs = []; time = TOTAL;
+  endAt = performance.now() + TOTAL * 1000; $("fb").replaceChildren(); nextQ(); hud();
+  clearInterval(timerId); timerId = setInterval(tick, 200); window.scrollTo(0, 0);
+}
+$("start").onclick = begin;
+</script></body></html>

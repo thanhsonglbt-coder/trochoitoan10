@@ -47,6 +47,10 @@ h2{font-size:1.4rem;margin:28px 0 12px}
 .go{margin-top:auto;padding-top:8px}
 .go a{display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px;min-height:44px}
 .go a:hover{background:#0f3a30}
+.go{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.score{font-size:.9rem;color:var(--muted)}
+.score .st{letter-spacing:.05em}
+.stars-pill{display:inline-block;margin-top:14px;background:rgba(255,255,255,.14);padding:6px 14px;border-radius:999px;font-weight:600;color:#fff}
 .empty{color:var(--muted)}
 .tips{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:6px}
 .tip{background:#fff;border:1px dashed #9ab2a4;border-radius:14px;padding:14px 16px}
@@ -62,6 +66,7 @@ footer{text-align:center;color:var(--muted);font-size:.9rem;padding:20px 16px 32
     <p class="brand"><span class="logo">10</span> smath.io.vn</p>
     <h1>Games <span>Toán 10</span></h1>
     <p class="lead">Học Toán 10 qua trò chơi và mô phỏng: dự đoán, kiểm tra bằng mô hình, rồi tự giải thích. Chọn một trò bên dưới để bắt đầu.</p>
+    <span class="stars-pill" id="stars" title="Sao em đã thu thập trên máy này"></span>
   </div>
 </header>
 
@@ -95,6 +100,42 @@ footer{text-align:center;color:var(--muted);font-size:.9rem;padding:20px 16px 32
    group: "game" (trò chơi) | "sim" (mô phỏng) | "doc" (phiếu, hướng dẫn)
    topics: "logic" | "triangle" | "vector" (có thể nhiều chủ đề) */
 const ITEMS = [
+  {
+    id: "kho-bau-cosin", isNew: true, group: "game", icon: "🗺️", color: "var(--t-tri)",
+    title: "Kho báu côsin",
+    desc: "Thám hiểm 8 chặng: dự đoán rồi dùng định lý côsin tìm khoảng cách hoặc góc. Sai được thử lại.",
+    topics: ["triangle"], href: "games/kho-bau-cosin.html", kind: "Cá nhân"
+  },
+  {
+    id: "robot-vecto", isNew: true, group: "game", icon: "🤖", color: "var(--t-vec)",
+    title: "Robot vectơ",
+    desc: "Chọn hệ số k để đưa robot đến cục pin trên lưới tọa độ. Đoán hướng và độ dài trước khi điều khiển.",
+    topics: ["vector"], href: "games/robot-vecto.html", kind: "Cá nhân"
+  },
+  {
+    id: "doi-truong-venn", isNew: true, group: "game", icon: "⭕", color: "var(--t-logic)",
+    title: "Đội trưởng Venn",
+    desc: "Điều phối các nhóm trong lớp bằng sơ đồ Venn: hợp, giao, chỉ một nhóm, chuyển thẻ giữa các miền.",
+    topics: ["logic"], href: "games/doi-truong-venn.html", kind: "Cá nhân"
+  },
+  {
+    id: "tho-san-phan-vi-du", isNew: true, group: "game", icon: "🔍", color: "var(--t-all)",
+    title: "Thợ săn phản ví dụ",
+    desc: "Mệnh đề và mệnh đề đảo đúng hay sai? Chọn thẻ số làm phản ví dụ để bác bỏ mệnh đề sai.",
+    topics: ["logic"], href: "games/tho-san-phan-vi-du.html", kind: "Cá nhân"
+  },
+  {
+    id: "tham-tu-loi-sai", isNew: true, group: "game", icon: "🕵️", color: "#eef0e6",
+    title: "Thám tử bắt lỗi",
+    desc: "Lời giải có một dòng sai. Tìm dòng sai, chọn lý do, rồi xem cách sửa. Đủ 3 chủ đề.",
+    topics: ["logic", "triangle", "vector"], href: "games/tham-tu-loi-sai.html", kind: "Cá nhân"
+  },
+  {
+    id: "thu-thach-60s", isNew: true, group: "game", icon: "⚡", color: "#fdeccb",
+    title: "Thử thách 60 giây",
+    desc: "Trả lời thật nhanh, đúng liên tiếp để nhân điểm combo. Câu hỏi tạo ngẫu nhiên, chơi lại không trùng.",
+    topics: ["logic", "triangle", "vector"], href: "games/thu-thach-60s.html", kind: "Tốc độ"
+  },
   {
     group: "game", icon: "🚑", color: "var(--t-tri)",
     title: "Thử thách Toán 10: Mở khóa trạm cứu hộ",
@@ -140,6 +181,11 @@ const ITEMS = [
 ];
 const TOPIC_NAMES = { logic: "Mệnh đề và tập hợp", triangle: "Hệ thức lượng", vector: "Vectơ" };
 
+function record(id) { try { return JSON.parse(localStorage.getItem("smath10:" + id)) || null; } catch (e) { return null; } }
+function totalStars() {
+  const ids = ITEMS.filter(i => i.id).map(i => i.id);
+  return { got: ids.reduce((n, id) => n + ((record(id) || {}).stars || 0), 0), max: ids.length * 3 };
+}
 function render(topic) {
   document.querySelectorAll("[data-group]").forEach(grid => {
     grid.replaceChildren();
@@ -149,14 +195,16 @@ function render(topic) {
       const card = document.createElement("article");
       card.className = "card";
       card.innerHTML = `
-        <div class="thumb" style="background:${it.color}"><span aria-hidden="true">${it.icon}</span><span class="kind">${it.kind}</span></div>
+        <div class="thumb" style="background:${it.color}"><span aria-hidden="true">${it.icon}</span><span class="kind">${it.isNew ? "Mới · " : ""}${it.kind}</span></div>
         <div class="body">
           <h3></h3><p></p>
           <div class="tags">${it.topics.map(t => `<span class="tag">${TOPIC_NAMES[t]}</span>`).join("")}</div>
-          <div class="go"><a href="${it.href}">Vào chơi →</a></div>
+          <div class="go"><a href="${it.href}">Vào chơi →</a><span class="score"></span></div>
         </div>`;
       card.querySelector("h3").textContent = it.title;
       card.querySelector("p").textContent = it.desc;
+      const rec = it.id ? record(it.id) : null;
+      if (rec && rec.plays) card.querySelector(".score").innerHTML = `<span class="st" aria-label="${rec.stars} sao">${"⭐".repeat(rec.stars)}${"☆".repeat(3 - rec.stars)}</span> Kỷ lục ${rec.best}`;
       if (it.group === "doc") card.querySelector(".go a").textContent = "Mở phiếu →";
       if (it.group === "sim") card.querySelector(".go a").textContent = "Mở mô phỏng →";
       grid.append(card);
@@ -168,6 +216,8 @@ document.querySelectorAll(".chip").forEach(chip => chip.onclick = () => {
   render(chip.dataset.topic);
 });
 render("all");
+const ts = totalStars();
+document.getElementById("stars").textContent = `⭐ ${ts.got} / ${ts.max} sao`;
 </script>
 </body>
 </html>

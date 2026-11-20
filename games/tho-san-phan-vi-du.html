@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thợ săn phản ví dụ · Games Toán 10</title><link rel="stylesheet" href="../assets/common.css">
+<style>
+.stmt{background:#f6f9f5;border:2px solid var(--line);border-radius:14px;padding:12px 16px;margin:8px 0;font-size:1.12rem}
+.stmt b{color:var(--green)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}
+@media (min-width:520px){.cards{grid-template-columns:repeat(6,1fr)}}
+.cardnum{font:inherit;font-size:1.6rem;font-weight:800;background:#fff;border:3px solid var(--blue);color:var(--blue);border-radius:14px;min-height:72px;cursor:pointer;box-shadow:0 3px 0 rgba(40,108,137,.25)}
+.cardnum:hover:not(:disabled){transform:translateY(-2px)}
+.cardnum.right{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.cardnum.wrong{background:var(--badbg);border-color:var(--bad);color:var(--bad)}
+.cardnum:disabled{cursor:default}
+</style></head>
+<body>
+<header class="top"><a class="home" href="../index.html">← Trang chủ</a><h1>🔍 Thợ săn phản ví dụ</h1><button id="snd" class="icon" aria-label="Bật hoặc tắt âm thanh">🔊</button></header>
+<main>
+<section id="intro" class="panel">
+  <h2>Mệnh đề nào đúng? Mệnh đề đảo thì sao?</h2>
+  <p>Mỗi vòng có một mệnh đề dạng <b>"Nếu P thì Q"</b> với n là số tự nhiên khác 0. Em hãy <b>dự đoán</b> mệnh đề và mệnh đề đảo đúng hay sai, rồi <b>săn phản ví dụ</b>: chọn tấm thẻ số làm cho mệnh đề sai.</p>
+  <p class="muted">8 vòng · mỗi vòng tối đa 3 điểm · một ví dụ đúng không chứng minh được mệnh đề, nhưng một phản ví dụ đủ để bác bỏ nó!</p>
+  <button class="btn" id="start">Bắt đầu săn</button>
+</section>
+<section id="play" class="panel" hidden>
+  <div class="hud"><span id="hRound"></span><span id="hScore"></span></div>
+  <div class="bar"><i id="prog"></i></div>
+  <div id="stepper"></div>
+  <div class="stmt" id="stmt"></div>
+  <div class="q" id="question"></div>
+  <div id="area"></div>
+  <div id="fb" aria-live="polite"></div>
+  <div id="exp"></div>
+  <p><button class="btn" id="next" hidden>Vòng tiếp theo →</button></p>
+</section>
+</main>
+<script src="../assets/common.js"></script>
+<script>
+const {$, rand, pick, shuffle, el} = SM;
+SM.initSound();
+let rounds = [], idx = 0, score = 0, mistakes = [], cur;
+const TF = ["Đúng", "Sai"];
+
+function pickRounds() {
+  // chọn đủ các loại: đảo sai, đảo đúng, mệnh đề sai, tương đương
+  const info = SM.PROPS.map(p => ({ p, fwd: SM.holds(p.P, p.Q), rev: SM.holds(p.Q, p.P) }));
+  const take = (f, n) => shuffle(info.filter(f)).slice(0, n);
+  const chosen = [...take(i => i.fwd && !i.rev, 3), ...take(i => !i.fwd && i.rev, 2), ...take(i => !i.fwd && !i.rev, 1), ...take(i => i.fwd && i.rev, 2)];
+  return shuffle(chosen);
+}
+function cards(P, Q, target) { // target: [f,g] cần f(n) đúng và g(n) sai
+  const [f, g] = target, good = [], bad = [];
+  for (let n = 2; n <= 40; n++) (f(n) && !g(n) ? good : bad).push(n);
+  const k = Math.min(rand(1, 2), good.length);
+  return shuffle([...shuffle(good).slice(0, k), ...shuffle(bad.filter(n => !(f(n) && !g(n)))).slice(0, 6 - k)]);
+}
+
+function startRound() {
+  cur = rounds[idx];
+  const { p } = cur;
+  $("hRound").textContent = `Vòng ${idx + 1} / ${rounds.length}`; $("hScore").textContent = `Điểm: ${score}`;
+  $("prog").style.width = (idx / rounds.length * 100) + "%";
+  ["fb", "exp", "area"].forEach(i => $(i).replaceChildren()); $("next").hidden = true;
+  $("stmt").innerHTML = `<div>P: <b>${p.p}</b></div><div>Q: <b>${p.q}</b></div><div style="margin-top:6px">Mệnh đề: <b>"Nếu P thì Q"</b></div>`;
+  SM.steps($("stepper"), ["Dự đoán mệnh đề", "Dự đoán mệnh đề đảo", "Săn phản ví dụ"], 0);
+  $("question").innerHTML = `Mệnh đề <b>"Nếu ${p.p} thì ${p.q}"</b> đúng hay sai?`;
+  tf(cur.fwd, ok => {
+    if (!ok) mistakes.push(`"Nếu ${p.p} thì ${p.q}" là mệnh đề ${cur.fwd ? "đúng" : "sai"}.`);
+    SM.steps($("stepper"), ["Dự đoán mệnh đề", "Dự đoán mệnh đề đảo", "Săn phản ví dụ"], 1);
+    $("question").innerHTML = `Mệnh đề đảo <b>"Nếu ${p.q} thì ${p.p}"</b> đúng hay sai?`;
+    tf(cur.rev, ok2 => {
+      if (!ok2) mistakes.push(`Mệnh đề đảo "Nếu ${p.q} thì ${p.p}" là ${cur.rev ? "đúng" : "sai"}.`);
+      hunt();
+    }, "r");
+  }, "f");
+}
+function tf(truth, then) {
+  const box = el("div", "opts two"), correct = truth ? 0 : 1;
+  TF.forEach((t, i) => {
+    const b = el("button", "opt", t); box.append(b);
+    b.onclick = () => {
+      [...box.children].forEach((c, j) => { c.disabled = true; if (j === correct) c.classList.add("right"); else if (j === i) c.classList.add("wrong"); });
+      const ok = i === correct; SM.beep(ok); if (ok) score++; $("hScore").textContent = `Điểm: ${score}`;
+      setTimeout(() => then(ok), ok ? 450 : 900);
+    };
+  });
+  $("area").replaceChildren(box);
+}
+function hunt() {
+  const { p, fwd, rev } = cur;
+  SM.steps($("stepper"), ["Dự đoán mệnh đề", "Dự đoán mệnh đề đảo", "Săn phản ví dụ"], 2);
+  if (fwd && rev) {
+    $("question").innerHTML = `Cả hai mệnh đề đều đúng. Em kết luận gì về P và Q?`;
+    const box = el("div", "opts"), correct = 0;
+    ["P và Q tương đương (P ⇔ Q): P là điều kiện cần và đủ của Q", "Chỉ có P ⇒ Q, còn Q ⇒ P chưa chắc đúng", "Không kết luận được gì"].forEach((t, i) => {
+      const b = el("button", "opt", t); box.append(b);
+      b.onclick = () => {
+        [...box.children].forEach((c, j) => { c.disabled = true; if (j === correct) c.classList.add("right"); else if (j === i) c.classList.add("wrong"); });
+        const ok = i === correct; SM.beep(ok); if (ok) score++; if (!ok) mistakes.push(`Khi cả P ⇒ Q và Q ⇒ P đều đúng thì P ⇔ Q (${p.p} ⇔ ${p.q}).`);
+        done(ok, `<div>Mọi số n thỏa P đều thỏa Q và ngược lại, nên "${p.p}" khi và chỉ khi "${p.q}".</div><div>Em không thể tìm được phản ví dụ nào cho hai mệnh đề này.</div>`);
+      };
+    });
+    $("area").replaceChildren(box); return;
+  }
+  // chọn mệnh đề sai cần phản ví dụ: ưu tiên mệnh đề đảo
+  const target = !rev ? [p.Q, p.P] : [p.P, p.Q];
+  const which = !rev ? `đảo "Nếu ${p.q} thì ${p.p}"` : `"Nếu ${p.p} thì ${p.q}"`;
+  const need = !rev ? `Q đúng nhưng P sai` : `P đúng nhưng Q sai`;
+  $("question").innerHTML = `Mệnh đề ${which} là mệnh đề sai. Chọn <b>phản ví dụ</b>: số n làm cho <b>${need}</b>.`;
+  const nums = cards(p.P, p.Q, target), grid = el("div", "cards"); let tried = false;
+  nums.forEach(n => {
+    const b = el("button", "cardnum", n); b.setAttribute("aria-label", "Thẻ số " + n); grid.append(b);
+    b.onclick = () => {
+      const ok = target[0](n) && !target[1](n); SM.beep(ok);
+      if (ok) { b.classList.add("right"); [...grid.children].forEach(c => c.disabled = true); if (!tried) score++;
+        done(!tried, `<div>Với n = ${n}: ${!rev ? `Q đúng nhưng P sai` : `P đúng nhưng Q sai`}, tức là mệnh đề ${which} không đúng với n = ${n}.</div><div>Chỉ cần một phản ví dụ là đủ kết luận mệnh đề đó sai.</div>`); }
+      else { b.classList.add("wrong"); b.disabled = true; tried = true;
+        $("fb").replaceChildren(el("div", "fb no", `n = ${n} chưa phải phản ví dụ (${target[0](n) ? "cả hai vế đều đúng" : "vế điều kiện không thỏa"}). Chọn thẻ khác (không còn điểm cho vòng săn này).`));
+        if ([...grid.children].every(c => c.disabled)) done(false, ""); }
+    };
+  });
+  $("area").replaceChildren(grid);
+}
+function done(ok, html) {
+  [...$("area").querySelectorAll("button")].forEach(b => b.disabled = true);
+  $("hScore").textContent = `Điểm: ${score}`;
+  const { p, fwd, rev } = cur;
+  const e = el("div", "exp");
+  e.innerHTML = `<div><b>Tổng kết:</b> "Nếu ${p.p} thì ${p.q}" là ${fwd ? "đúng" : "sai"}; mệnh đề đảo là ${rev ? "đúng" : "sai"}.</div>${html}`;
+  $("exp").replaceChildren(e);
+  $("fb").replaceChildren(el("div", "fb " + (ok ? "ok" : "no"), ok ? "Chính xác! +1 điểm." : "Chưa đúng ở bước này, hãy đọc tổng kết bên dưới."));
+  if (!ok && !(fwd && rev)) { const t = !rev ? [p.Q, p.P] : [p.P, p.Q]; let c = 0; for (let n = 1; n <= 40; n++) if (t[0](n) && !t[1](n)) { c = n; break; } mistakes.push(`Phản ví dụ cho mệnh đề ${!rev ? "đảo" : "ban đầu"} "${p.p} / ${p.q}": n = ${c}.`); }
+  $("next").hidden = false; $("next").textContent = idx === rounds.length - 1 ? "Xem kết quả" : "Vòng tiếp theo →"; $("next").focus();
+}
+$("next").onclick = () => {
+  idx++;
+  if (idx >= rounds.length) { $("prog").style.width = "100%"; SM.end({ id: "tho-san-phan-vi-du", title: "Kết thúc cuộc săn", score, max: rounds.length * 3, stars: SM.starsFor(score / (rounds.length * 3)), mistakes, again: begin }); }
+  else startRound();
+};
+function begin() { rounds = pickRounds().map(i => ({ p: i.p, fwd: i.fwd, rev: i.rev })); idx = 0; score = 0; mistakes = []; $("intro").hidden = true; $("play").hidden = false; startRound(); window.scrollTo(0, 0); }
+$("start").onclick = begin;
+</script></body></html>

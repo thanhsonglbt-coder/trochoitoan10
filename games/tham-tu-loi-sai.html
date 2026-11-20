@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thám tử bắt lỗi · Games Toán 10</title><link rel="stylesheet" href="../assets/common.css">
+<style>
+.sol{margin:10px 0;display:grid;gap:8px}
+.line{font:inherit;text-align:left;display:flex;gap:10px;align-items:flex-start;background:#fff;color:var(--ink);border:2px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;min-height:48px}
+.line:hover:not(:disabled){border-color:var(--green);background:#f6f9f5}
+.line i{font-style:normal;font-weight:800;color:#fff;background:var(--green);border-radius:50%;min-width:26px;height:26px;display:grid;place-items:center;font-size:.85rem;margin-top:1px}
+.line.right{background:var(--badbg);border-color:var(--bad)}
+.line.right i{background:var(--bad)}
+.line.safe{background:var(--okbg);border-color:var(--ok)}
+.line:disabled{cursor:default}
+.tag{display:inline-block;font-size:.8rem;background:#edf5ed;color:var(--green);border-radius:99px;padding:2px 10px;margin-bottom:4px}
+</style></head>
+<body>
+<header class="top"><a class="home" href="../index.html">← Trang chủ</a><h1>🕵️ Thám tử bắt lỗi</h1><button id="snd" class="icon" aria-label="Bật hoặc tắt âm thanh">🔊</button></header>
+<main>
+<section id="intro" class="panel">
+  <h2>Lời giải này sai ở dòng nào?</h2>
+  <p>Mỗi hồ sơ là một lời giải của "bạn học sinh" có <b>đúng một dòng sai đầu tiên</b>. Em là thám tử: <b>chạm vào dòng sai</b>, rồi chọn <b>lý do</b> vì sao dòng đó sai.</p>
+  <p class="muted">6 hồ sơ ngẫu nhiên trong 10 hồ sơ · mỗi hồ sơ tối đa 3 điểm (tìm đúng dòng: 2 điểm, sai lần đầu thì thử lại được 1 điểm; chọn đúng lý do: 1 điểm).</p>
+  <button class="btn" id="start">Mở hồ sơ</button>
+</section>
+<section id="play" class="panel" hidden>
+  <div class="hud"><span id="hRound"></span><span id="hScore"></span></div>
+  <div class="bar"><i id="prog"></i></div>
+  <div id="stepper"></div>
+  <span class="tag" id="tag"></span>
+  <div class="q" id="statement"></div>
+  <div class="sol" id="sol"></div>
+  <div class="q" id="question"></div>
+  <div id="area"></div>
+  <div id="fb" aria-live="polite"></div>
+  <div id="exp"></div>
+  <p><button class="btn" id="next" hidden>Hồ sơ tiếp theo →</button></p>
+</section>
+</main>
+<script src="../assets/common.js"></script>
+<script>
+const {$, rand, shuffle, el} = SM;
+SM.initSound();
+/* wrong = chỉ số (từ 0) của dòng sai đầu tiên; why[0] là lý do đúng */
+const BANK = [
+ { topic: "Hệ thức lượng", st: "Tam giác ABC có AB = 5, AC = 7, góc A = 60°. Tính BC.",
+   lines: ["BC² = AB² + AC² − 2·AB·AC·cos A", "BC² = 25 + 49 − 2·5·7·cos 120°", "BC² = 74 + 35 = 109", "BC = √109"], wrong: 1,
+   why: ["Đề cho góc A = 60°, nhưng lời giải dùng cos 120°.", "Công thức côsin phải là BC² = AB² + AC² + 2·AB·AC·cos A.", "25 + 49 phải bằng 84."],
+   fix: "BC² = 25 + 49 − 2·5·7·cos 60° = 74 − 35 = 39, nên BC = √39 ≈ 6,24." },
+ { topic: "Hệ thức lượng", st: "Tam giác ABC có AB = 4, AC = 6, góc A = 90°. Tính BC.",
+   lines: ["BC² = 4² + 6² − 2·4·6·cos 90°", "cos 90° = 1 nên BC² = 52 − 48·1", "BC² = 4", "BC = 2"], wrong: 1,
+   why: ["cos 90° = 0, không phải 1.", "4² + 6² phải bằng 10.", "Không được dùng định lý côsin cho góc vuông."],
+   fix: "cos 90° = 0 nên BC² = 16 + 36 = 52 và BC = 2√13 ≈ 7,21 (đúng với Pythagore)." },
+ { topic: "Hệ thức lượng", st: "Tam giác ABC có AB = 5, AC = 7, BC = 6. Tính cos A.",
+   lines: ["cos A = (AB² + AC² − BC²) / (2·AB·AC)", "cos A = (25 + 49 − 36) / (5·7)", "cos A = 38/35 ≈ 1,09", "Vậy không tồn tại tam giác như vậy."], wrong: 1,
+   why: ["Mẫu số thiếu thừa số 2: phải là 2·5·7 = 70.", "Tử số phải là 25 + 49 + 36.", "Phải dùng BC² = 6 thay vì 36."],
+   fix: "cos A = (25 + 49 − 36)/(2·5·7) = 38/70 = 19/35 ≈ 0,54 (hoàn toàn hợp lệ)." },
+ { topic: "Vectơ", st: "Cho u = (3; 4). Tìm độ dài của vectơ −2u.",
+   lines: ["|u| = √(3² + 4²) = 5", "|−2u| = −2·5 = −10", "Vậy độ dài của −2u bằng −10."], wrong: 1,
+   why: ["Độ dài không âm: |k·u| = |k|·|u| = 2·5 = 10.", "|u| phải bằng 7.", "Phải dùng |−2u| = |u| − 2."],
+   fix: "|−2u| = |−2|·|u| = 2·5 = 10. Dấu âm chỉ đổi hướng, không đổi dấu của độ dài." },
+ { topic: "Vectơ", st: "Cho u = (3; 4) và k = 1/2. Nhận xét vectơ v = k·u.",
+   lines: ["v = ½·(3; 4) = (1,5; 2)", "|v| = ½·|u| = ½·5 = 2,5", "Vì 1/2 là số dương nhỏ hơn 1 nên v ngược hướng với u.", "Vậy v dài 2,5 và ngược hướng với u."], wrong: 2,
+   why: ["k > 0 thì v cùng hướng với u; chỉ k < 0 mới ngược hướng.", "|v| phải bằng 5.", "Tọa độ của v phải là (6; 8)."],
+   fix: "k = 1/2 > 0 nên v cùng hướng với u; k nhỏ hơn 1 chỉ làm độ dài ngắn đi một nửa." },
+ { topic: "Vectơ", st: "Cho u = (3; 4), v = (−6; −8) và v = k·u. Tìm k.",
+   lines: ["v = k·u nên −6 = k·3", "Suy ra k = 2", "Kiểm tra tung độ: 2·4 = 8", "Vậy v = 2u."], wrong: 1,
+   why: ["−6 : 3 = −2 chứ không phải 2.", "Phải dùng −8 = k·3.", "Không thể tìm k từ hoành độ."],
+   fix: "−6 = 3k nên k = −2, kiểm tra −2·4 = −8 đúng. Vậy v = −2u (ngược hướng, dài gấp đôi)." },
+ { topic: "Mệnh đề", st: "Mệnh đề P ⇒ Q: \"Nếu n là bội của 6 thì n là số chẵn\" (đúng). Xét mệnh đề đảo.",
+   lines: ["Mệnh đề đảo: \"Nếu n là số chẵn thì n là bội của 6\".", "Thử n = 6: n chẵn và n là bội của 6.", "Một ví dụ đúng nên mệnh đề đảo đúng."], wrong: 2,
+   why: ["Một ví dụ đúng không chứng minh được mệnh đề; chỉ cần phản ví dụ n = 4 là bác bỏ.", "Mệnh đề đảo phải là \"Nếu n là bội của 6 thì n là số chẵn\".", "n = 6 không phải số chẵn."],
+   fix: "n = 4 là số chẵn nhưng không là bội của 6, nên mệnh đề đảo SAI." },
+ { topic: "Mệnh đề", st: "Viết mệnh đề phủ định của \"Mọi số chẵn đều chia hết cho 4\".",
+   lines: ["Mệnh đề gốc có dạng: ∀n chẵn, n chia hết cho 4.", "Phủ định đổi ∀ thành ∃ và phủ định phần còn lại.", "Phủ định: \"Mọi số chẵn đều không chia hết cho 4\"."], wrong: 2,
+   why: ["Dòng 2 nói phải đổi ∀ thành ∃: \"Tồn tại số chẵn không chia hết cho 4\".", "Phủ định phải giữ nguyên ∀ và đổi vế sau.", "Mệnh đề gốc là mệnh đề sai nên không có phủ định."],
+   fix: "Phủ định: \"Tồn tại số chẵn không chia hết cho 4\" (ví dụ n = 2)." },
+ { topic: "Tập hợp", st: "Lớp 36 em: 20 em thích Toán, 17 em thích Tin, 8 em thích cả hai. Có bao nhiêu em thích ít nhất một môn?",
+   lines: ["n(A ∪ B) = n(A) + n(B) − n(A ∩ B)", "n(A ∪ B) = 20 + 17 + 8", "n(A ∪ B) = 45", "Vậy có 45 em thích ít nhất một môn."], wrong: 1,
+   why: ["Phải trừ n(A ∩ B) = 8 chứ không cộng, vì công thức ở dòng 1 có dấu trừ.", "n(A) phải bằng 17.", "Phải nhân thay vì cộng."],
+   fix: "n(A ∪ B) = 20 + 17 − 8 = 29 (nhỏ hơn sĩ số 36, hợp lý)." },
+ { topic: "Tập hợp", st: "Có 20 em thích Toán, trong đó 8 em cũng thích Tin. Có bao nhiêu em chỉ thích Toán?",
+   lines: ["Chỉ thích Toán là phần của A nằm ngoài giao với B.", "n(chỉ Toán) = 20 + 8 = 28", "Vậy có 28 em chỉ thích Toán."], wrong: 1,
+   why: ["Phải trừ: 20 − 8 = 12; 28 còn lớn hơn cả n(A) = 20.", "Phải lấy 20 × 8.", "Phải lấy n(B) − 8."],
+   fix: "n(chỉ Toán) = n(A) − n(A ∩ B) = 20 − 8 = 12." }
+];
+let rounds = [], idx = 0, score = 0, mistakes = [], tries = 0, cur;
+
+function startRound() {
+  cur = rounds[idx]; tries = 0;
+  $("hRound").textContent = `Hồ sơ ${idx + 1} / ${rounds.length}`; $("hScore").textContent = `Điểm: ${score}`;
+  $("prog").style.width = (idx / rounds.length * 100) + "%";
+  ["fb", "exp", "area"].forEach(i => $(i).replaceChildren()); $("next").hidden = true;
+  SM.steps($("stepper"), ["Tìm dòng sai", "Chọn lý do", "Sửa lỗi"], 0);
+  $("tag").textContent = cur.topic; $("statement").textContent = cur.st;
+  $("question").innerHTML = "Chạm vào <b>dòng sai đầu tiên</b>:";
+  const sol = $("sol"); sol.replaceChildren();
+  cur.lines.forEach((t, i) => {
+    const b = el("button", "line"); b.innerHTML = `<i>${i + 1}</i><span></span>`; b.lastChild.textContent = t; sol.append(b);
+    b.onclick = () => {
+      tries++;
+      if (i === cur.wrong) {
+        SM.beep(true); [...sol.children].forEach((c, j) => { c.disabled = true; if (j === cur.wrong) c.classList.add("right"); });
+        const pts = tries === 1 ? 2 : 1; score += pts; $("hScore").textContent = `Điểm: ${score}`;
+        $("fb").replaceChildren(el("div", "fb ok", `Bắt được lỗi ở dòng ${i + 1}! +${pts} điểm.`));
+        reason();
+      } else {
+        SM.beep(false); b.disabled = true; b.classList.add("safe");
+        if (tries >= 2) {
+          [...sol.children].forEach((c, j) => { c.disabled = true; if (j === cur.wrong) c.classList.add("right"); });
+          $("fb").replaceChildren(el("div", "fb no", `Dòng sai là dòng ${cur.wrong + 1}.`)); mistakes.push(`Hồ sơ ${idx + 1}: dòng sai là dòng ${cur.wrong + 1}. ${cur.why[0]}`); reason();
+        } else $("fb").replaceChildren(el("div", "fb no", `Dòng ${i + 1} đúng. Hãy đọc lại các dòng còn lại (thử lại được 1 điểm).`));
+      }
+    };
+  });
+}
+function reason() {
+  SM.steps($("stepper"), ["Tìm dòng sai", "Chọn lý do", "Sửa lỗi"], 1);
+  $("question").innerHTML = "Vì sao dòng đó sai?";
+  const box = el("div", "opts"), order = shuffle([0, 1, 2]), correct = order.indexOf(0);
+  order.forEach((k, i) => {
+    const b = el("button", "opt", cur.why[k]); box.append(b);
+    b.onclick = () => {
+      [...box.children].forEach((c, j) => { c.disabled = true; if (j === correct) c.classList.add("right"); else if (j === i) c.classList.add("wrong"); });
+      const ok = i === correct; SM.beep(ok); if (ok) score++; $("hScore").textContent = `Điểm: ${score}`;
+      if (!ok) mistakes.push(`Hồ sơ ${idx + 1}: ${cur.why[0]}`);
+      SM.steps($("stepper"), ["Tìm dòng sai", "Chọn lý do", "Sửa lỗi"], 2);
+      const e = el("div", "exp"); e.innerHTML = `<div><b>Lời giải đúng:</b> ${cur.fix}</div>`; $("exp").replaceChildren(e);
+      $("fb").append(el("div", "fb " + (ok ? "ok" : "no"), ok ? "Lý do đúng! +1 điểm." : "Lý do đúng là: " + cur.why[0]));
+      $("next").hidden = false; $("next").textContent = idx === rounds.length - 1 ? "Xem kết quả" : "Hồ sơ tiếp theo →"; $("next").focus();
+    };
+  });
+  $("area").replaceChildren(box);
+}
+$("next").onclick = () => {
+  idx++;
+  if (idx >= rounds.length) { $("prog").style.width = "100%"; SM.end({ id: "tham-tu-loi-sai", title: "Vụ án đã khép lại", score, max: rounds.length * 3, stars: SM.starsFor(score / (rounds.length * 3)), mistakes, again: begin }); }
+  else startRound();
+};
+function begin() { rounds = shuffle(BANK).slice(0, 6); idx = 0; score = 0; mistakes = []; $("intro").hidden = true; $("play").hidden = false; startRound(); window.scrollTo(0, 0); }
+$("start").onclick = begin;
+</script></body></html>
