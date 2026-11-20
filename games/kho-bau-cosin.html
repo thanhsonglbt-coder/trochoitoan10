@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kho báu côsin · Games Toán 10</title><link rel="stylesheet" href="../assets/common.css"></head>
+<body>
+<header class="top"><a class="home" href="../index.html">← Trang chủ</a><h1>🗺️ Kho báu côsin</h1><button id="snd" class="icon" aria-label="Bật hoặc tắt âm thanh">🔊</button></header>
+<main>
+<section id="intro" class="panel">
+  <h2>Đi tìm kho báu bằng định lý côsin</h2>
+  <p>Từ trại A có hai con đường AB và AC dẫn tới hai kho báu B và C. Em là thám hiểm viên: <b>dự đoán trước</b>, rồi <b>tính</b> khoảng cách hoặc góc, cuối cùng đọc <b>lời giải</b> để tự sửa.</p>
+  <p class="muted">8 chặng · mỗi chặng tối đa 3 điểm · tính đến 0,1 · sai lần đầu vẫn được thử lại (được 1 điểm).</p>
+  <button class="btn" id="start">Bắt đầu thám hiểm</button>
+</section>
+<section id="play" class="panel" hidden>
+  <div class="hud"><span id="hRound"></span><span id="hScore"></span></div>
+  <div class="bar"><i id="prog"></i></div>
+  <div id="stepper"></div>
+  <svg id="fig" class="fig" viewBox="0 0 420 250" role="img" aria-label="Hình tam giác ABC"></svg>
+  <div class="q" id="question"></div>
+  <div id="area"></div>
+  <div id="fb" aria-live="polite"></div>
+  <div id="exp"></div>
+  <p><button class="btn" id="next" hidden>Chặng tiếp theo →</button></p>
+</section>
+</main>
+<script src="../assets/common.js"></script>
+<script>
+const {$, rand, pick, shuffle, fmt, parse, el} = SM;
+SM.initSound();
+const ANG = [30, 45, 60, 90, 120, 135, 150];
+const COS = {30: "√3/2", 45: "√2/2", 60: "1/2", 90: "0", 120: "−1/2", 135: "−√2/2", 150: "−√3/2"};
+const rad = d => d * Math.PI / 180;
+// bộ ba cạnh (a đối diện A; b = AC, c = AB) cho góc "đẹp"
+const TRI = { 60: [[7, 5, 8], [14, 10, 16]], 120: [[7, 3, 5], [14, 6, 10]], 90: [[5, 3, 4], [10, 6, 8]] };
+let rounds = [], idx = 0, score = 0, mistakes = [], tries = 0, cur;
+
+function makeRounds() {
+  const angs = shuffle(ANG).slice(0, 5);
+  const sides = angs.map(A => ({ type: "side", A, b: rand(3, 9), c: rand(3, 9) }));
+  const angles = shuffle([60, 120, 90]).map(A => { const [a, b, c] = pick(TRI[A]); return { type: "angle", A, a, b, c }; });
+  const order = ["s", "s", "a", "s", "s", "a", "s", "a"]; let si = 0, ai = 0;
+  return order.map(t => t === "s" ? sides[si++] : angles[ai++]);
+}
+const sideLen = r => Math.sqrt(r.b * r.b + r.c * r.c - 2 * r.b * r.c * Math.cos(rad(r.A)));
+
+function drawFig(r) {
+  const svg = $("fig"); svg.replaceChildren();
+  const S = "http://www.w3.org/2000/svg";
+  const mk = (t, at, txt) => { const n = document.createElementNS(S, t); for (const k in at) n.setAttribute(k, at[k]); if (txt !== undefined) n.textContent = txt; svg.append(n); return n; };
+  const a = r.type === "side" ? sideLen(r) : r.a;
+  const A = r.A, pts = { A: [0, 0], B: [r.c, 0], C: [r.b * Math.cos(rad(A)), r.b * Math.sin(rad(A))] };
+  const xs = Object.values(pts).map(p => p[0]), ys = Object.values(pts).map(p => p[1]);
+  const minx = Math.min(...xs), maxx = Math.max(...xs), maxy = Math.max(...ys);
+  const sc = Math.min(300 / (maxx - minx), 150 / maxy), ox = (420 - sc * (maxx - minx)) / 2 - sc * minx, oy = 215;
+  const P = k => [ox + sc * pts[k][0], oy - sc * pts[k][1]];
+  const [ax, ay] = P("A"), [bx, by] = P("B"), [cx, cy] = P("C");
+  mk("polygon", { points: `${ax},${ay} ${bx},${by} ${cx},${cy}`, fill: "#deeee2", stroke: "#17483c", "stroke-width": 3, "stroke-linejoin": "round" });
+  // cung góc A
+  const R = 30, ex = ax + R * Math.cos(rad(A)), ey = ay - R * Math.sin(rad(A));
+  mk("path", { d: `M ${ax + R} ${ay} A ${R} ${R} 0 0 0 ${ex} ${ey}`, fill: "none", stroke: "#286c89", "stroke-width": 2.5 });
+  const lab = (x, y, t, fill = "#18332e", size = 16, anchor = "middle", weight = 600) => mk("text", { x, y, fill, "font-size": size, "text-anchor": anchor, "font-weight": weight }, t);
+  lab(ax - 14, ay + 20, "A", "#17483c", 18); lab(bx + 14, by + 20, "B", "#17483c", 18); lab(cx + (cx < ax ? -14 : 14), cy - 8, "C", "#17483c", 18);
+  lab((ax + bx) / 2, ay + 22, "AB = " + r.c + (r.type === "side" ? "" : ""), "#18332e");
+  const mx = (ax + cx) / 2, my = (ay + cy) / 2;
+  lab(mx + (cx < ax ? -34 : -30), my - 6, "AC = " + r.b, "#18332e", 16, "end");
+  const mbx = (bx + cx) / 2, mby = (by + cy) / 2;
+  lab(mbx + 12, mby - 6, "BC = " + (r.type === "side" ? "?" : r.a), r.type === "side" ? "#b36520" : "#18332e", 16, "start", 700);
+  const lx = ax + 46 * Math.cos(rad(A / 2)), ly = ay - 46 * Math.sin(rad(A / 2)) + 5;
+  lab(lx, ly, r.type === "side" ? "A = " + r.A + "°" : "A = ?", r.type === "side" ? "#286c89" : "#b36520", 15, "middle", 700);
+}
+
+function startRound() {
+  cur = rounds[idx]; tries = 0;
+  $("hRound").textContent = `Chặng ${idx + 1} / ${rounds.length}`; $("hScore").textContent = `Điểm: ${score}`;
+  $("prog").style.width = (idx / rounds.length * 100) + "%";
+  $("fb").replaceChildren(); $("exp").replaceChildren(); $("next").hidden = true; $("area").replaceChildren();
+  drawFig(cur);
+  SM.steps($("stepper"), ["Dự đoán", "Tính", "Giải thích"], 0);
+  const opts = el("div", "opts");
+  let q, choices, correct;
+  if (cur.type === "side") {
+    q = `Biết AB = ${cur.c}, AC = ${cur.b}, góc A = ${cur.A}°. <b>Dự đoán:</b> so với √(AB² + AC²) = √${cur.b * cur.b + cur.c * cur.c} (trường hợp góc vuông), cạnh BC sẽ…`;
+    choices = ["ngắn hơn", "bằng", "dài hơn"]; correct = cur.A < 90 ? 0 : cur.A === 90 ? 1 : 2;
+  } else {
+    q = `Biết ba cạnh AB = ${cur.c}, AC = ${cur.b}, BC = ${cur.a}. <b>Dự đoán:</b> so sánh BC² = ${cur.a * cur.a} với AB² + AC² = ${cur.b * cur.b + cur.c * cur.c}, góc A là…`;
+    choices = ["góc nhọn", "góc vuông", "góc tù"]; correct = cur.A < 90 ? 0 : cur.A === 90 ? 1 : 2;
+  }
+  $("question").innerHTML = q;
+  choices.forEach((t, i) => {
+    const b = el("button", "opt", t); opts.append(b);
+    b.onclick = () => {
+      [...opts.children].forEach((c, j) => { c.disabled = true; if (j === correct) c.classList.add("right"); else if (j === i) c.classList.add("wrong"); });
+      const ok = i === correct; SM.beep(ok); if (ok) score++; else mistakes.push(`Chặng ${idx + 1}: dự đoán chưa đúng, hãy so sánh cạnh đối diện với tổng bình phương hai cạnh kia.`);
+      $("hScore").textContent = `Điểm: ${score}`;
+      const why = cur.type === "side"
+        ? (cur.A < 90 ? "Góc nhỏ hơn 90° thì cos A > 0, nên BC² = b² + c² − 2bc·cos A nhỏ hơn b² + c²." : cur.A === 90 ? "cos 90° = 0 nên BC² = b² + c² (định lý Pythagore)." : "Góc lớn hơn 90° thì cos A < 0, nên BC² lớn hơn b² + c².")
+        : (cur.A < 90 ? "BC² nhỏ hơn AB² + AC² nên cos A > 0: góc A nhọn." : cur.A === 90 ? "BC² = AB² + AC² nên cos A = 0: góc A vuông." : "BC² lớn hơn AB² + AC² nên cos A < 0: góc A tù.");
+      $("fb").replaceChildren(el("div", "fb " + (ok ? "ok" : "no"), (ok ? "Dự đoán đúng! " : "Chưa đúng. ") + why));
+      stepCompute();
+    };
+  });
+  $("area").append(opts);
+}
+
+function stepCompute() {
+  SM.steps($("stepper"), ["Dự đoán", "Tính", "Giải thích"], 1);
+  const area = $("area");
+  if (cur.type === "side") {
+    $("question").innerHTML = `<b>Tính</b> BC (làm tròn đến 0,1). Chú ý: góc A nằm <i>giữa</i> hai cạnh AB và AC.`;
+    const wrap = el("div", "row"); const inp = el("input", "num"); inp.type = "text"; inp.inputMode = "decimal"; inp.placeholder = "BC ≈ …"; inp.setAttribute("aria-label", "Độ dài BC");
+    const go = el("button", "btn", "Kiểm tra"); wrap.append(inp, go); area.append(wrap);
+    const check = () => {
+      const v = parse(inp.value); if (!isFinite(v)) { $("fb").replaceChildren(el("div", "fb info", "Hãy nhập một số.")); return; }
+      tries++; const ans = sideLen(cur), ok = Math.abs(v - ans) <= 0.051;
+      if (ok) finish(tries === 1 ? 2 : 1, true);
+      else if (tries === 1) { SM.beep(false); $("fb").replaceChildren(el("div", "fb no", "Chưa khớp. Gợi ý: BC² = AB² + AC² − 2·AB·AC·cos A. Kiểm tra góc và dấu của cos rồi thử lại (còn 1 điểm).")); inp.select(); }
+      else finish(0, false);
+    };
+    go.onclick = check; inp.onkeydown = e => { if (e.key === "Enter") check(); }; inp.focus();
+  } else {
+    $("question").innerHTML = `<b>Tính</b> góc A, biết cos A = (AB² + AC² − BC²) / (2·AB·AC).`;
+    const opts = el("div", "opts two");
+    const ang = shuffle([cur.A, ...shuffle(ANG.filter(x => x !== cur.A)).slice(0, 3)]);
+    ang.forEach(d => {
+      const b = el("button", "opt", d + "°"); opts.append(b);
+      b.onclick = () => {
+        tries++; const ok = d === cur.A;
+        if (ok) { b.classList.add("right"); [...opts.children].forEach(c => c.disabled = true); finish(tries === 1 ? 2 : 1, true); }
+        else { b.classList.add("wrong"); b.disabled = true; SM.beep(false);
+          if (tries >= 2) { [...opts.children].forEach(c => { c.disabled = true; if (c.textContent === cur.A + "°") c.classList.add("right"); }); finish(0, false); }
+          else $("fb").replaceChildren(el("div", "fb no", "Chưa đúng. Tính cos A rồi tìm góc có cos đó (cos 60° = 1/2, cos 90° = 0, cos 120° = −1/2). Thử lại (còn 1 điểm).")); }
+      };
+    });
+    area.append(opts);
+  }
+}
+
+function finish(pts, ok) {
+  SM.steps($("stepper"), ["Dự đoán", "Tính", "Giải thích"], 2);
+  score += pts; $("hScore").textContent = `Điểm: ${score}`;
+  [...$("area").querySelectorAll("input,button")].forEach(x => x.disabled = true);
+  SM.beep(ok);
+  const e = el("div", "exp"), r = cur;
+  if (r.type === "side") {
+    const s2 = r.b * r.b + r.c * r.c - 2 * r.b * r.c * Math.cos(rad(r.A));
+    e.innerHTML = `<div><b>Lời giải</b> (góc A = ${r.A}° nằm giữa AB và AC):</div>
+      <div>BC² = ${r.c}² + ${r.b}² − 2·${r.c}·${r.b}·cos ${r.A}°</div>
+      <div>cos ${r.A}° = ${COS[r.A]} ≈ ${fmt(Math.cos(rad(r.A)), 3)}</div>
+      <div>BC² = ${fmt(s2, 2)} ⇒ <b>BC ≈ ${fmt(Math.sqrt(s2), 2)}</b></div>`;
+  } else {
+    e.innerHTML = `<div><b>Lời giải:</b></div>
+      <div>cos A = (${r.c}² + ${r.b}² − ${r.a}²) / (2·${r.c}·${r.b}) = ${r.c * r.c + r.b * r.b - r.a * r.a} / ${2 * r.c * r.b} = ${COS[r.A]}</div>
+      <div>⇒ <b>A = ${r.A}°</b></div>`;
+  }
+  $("exp").replaceChildren(e);
+  $("fb").replaceChildren(el("div", "fb " + (ok ? "ok" : "no"), ok ? (pts === 2 ? "Chính xác! +2 điểm." : "Em đã tự sửa được! +1 điểm.") : "Chưa đúng, hãy đọc lời giải bên dưới."));
+  if (!ok) mistakes.push(`Chặng ${idx + 1}: ` + (r.type === "side" ? `BC² = ${r.c}² + ${r.b}² − 2·${r.c}·${r.b}·cos ${r.A}°, dùng đúng góc xen giữa.` : `cos A = (${r.c}² + ${r.b}² − ${r.a}²)/(2·${r.c}·${r.b}) nên A = ${r.A}°.`));
+  $("next").hidden = false; $("next").textContent = idx === rounds.length - 1 ? "Xem kết quả" : "Chặng tiếp theo →"; $("next").focus();
+}
+
+$("next").onclick = () => {
+  idx++;
+  if (idx >= rounds.length) { $("prog").style.width = "100%"; SM.end({ id: "kho-bau-cosin", title: "Kết thúc chuyến thám hiểm", score, max: rounds.length * 3, stars: SM.starsFor(score / (rounds.length * 3)), mistakes, again: begin }); }
+  else startRound();
+};
+function begin() { rounds = makeRounds(); idx = 0; score = 0; mistakes = []; $("intro").hidden = true; $("play").hidden = false; startRound(); window.scrollTo(0, 0); }
+$("start").onclick = begin;
+</script></body></html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Đội trưởng Venn · Games Toán 10</title><link rel="stylesheet" href="../assets/common.css"></head>
+<body>
+<header class="top"><a class="home" href="../index.html">← Trang chủ</a><h1>⭕ Đội trưởng Venn</h1><button id="snd" class="icon" aria-label="Bật hoặc tắt âm thanh">🔊</button></header>
+<main>
+<section id="intro" class="panel">
+  <h2>Điều phối các nhóm bằng sơ đồ Venn</h2>
+  <p>Em là đội trưởng của một lớp. Mỗi nhiệm vụ cho biết số em ở các nhóm A và B. Hãy <b>dự đoán</b> trước (cộng thẳng n(A) + n(B) có bị đếm trùng không?), rồi <b>tính</b> đúng số em được hỏi.</p>
+  <p class="muted">8 nhiệm vụ · tối đa 24 điểm · vùng được hỏi sẽ tô màu cam trên sơ đồ.</p>
+  <button class="btn" id="start">Nhận nhiệm vụ</button>
+</section>
+<section id="play" class="panel" hidden>
+  <div class="hud"><span id="hRound"></span><span id="hScore"></span></div>
+  <div class="bar"><i id="prog"></i></div>
+  <div id="stepper"></div>
+  <p id="story"></p>
+  <svg id="venn" class="fig" viewBox="0 0 520 250" role="img" aria-label="Sơ đồ Venn của hai nhóm A và B"></svg>
+  <div class="q" id="question"></div>
+  <div id="area"></div>
+  <div id="fb" aria-live="polite"></div>
+  <div id="exp"></div>
+  <p><button class="btn" id="next" hidden>Nhiệm vụ tiếp theo →</button></p>
+</section>
+</main>
+<script src="../assets/common.js"></script>
+<script>
+const {$, rand, pick, shuffle, fmt, parse, el} = SM;
+SM.initSound();
+const THEMES = [["thích Toán", "thích Tin"], ["biết bơi", "biết đạp xe"], ["thích đọc sách", "thích chơi thể thao"], ["tham gia CLB Toán", "tham gia CLB Văn"], ["thích bóng đá", "thích bóng chuyền"]];
+const ORDER = ["union", "outside", "move", "onlyA", "findInter", "move", "onlyB", "findInter"];
+let rounds = [], idx = 0, score = 0, mistakes = [], tries = 0, cur;
+
+function makeRound(type) {
+  const th = pick(THEMES);
+  for (let t = 0; t < 500; t++) {
+    const x = rand(12, 22), y = rand(10, 20), z = type === "union" ? (Math.random() < 0.3 ? 0 : rand(3, Math.min(x, y) - 2)) : rand(3, Math.min(x, y) - 2);
+    const N = rand(30, 46), u = x + y - z;
+    if (N < u + 2) continue;
+    const r = { type, th, x, y, z, N, u, out: N - u, onlyA: x - z, onlyB: y - z };
+    if (type === "move") { const m = rand(1, 3); if (r.onlyA <= m + 1) continue; r.m = m; r.q = pick(["A", "B", "I", "U", "onlyA"]); }
+    return r;
+  }
+}
+const S = "http://www.w3.org/2000/svg";
+function mk(svg, t, at, txt) { const n = document.createElementNS(S, t); for (const k in at) n.setAttribute(k, at[k]); if (txt !== undefined) n.textContent = txt; svg.append(n); return n; }
+/* highlight: 'union' | 'out' | 'onlyA' | 'onlyB' | 'inter' | null ; vals: {onlyA,inter,onlyB,out} (null = ẩn) */
+function drawVenn(hl, vals, hlText) {
+  const svg = $("venn"); svg.replaceChildren();
+  const O = "#f6c98d", OS = "#b36520";
+  const defs = mk(svg, "defs", {}); const cp = document.createElementNS(S, "clipPath"); cp.setAttribute("id", "cb"); defs.append(cp);
+  const ce = document.createElementNS(S, "ellipse"); for (const [k, v] of Object.entries({ cx: 330, cy: 130, rx: 125, ry: 92 })) ce.setAttribute(k, v); cp.append(ce);
+  mk(svg, "rect", { x: 6, y: 6, width: 508, height: 238, rx: 14, fill: hl === "out" ? O : "#f8fbf7", stroke: hl === "out" ? OS : "#9ab2a4", "stroke-width": 2 });
+  mk(svg, "text", { x: 20, y: 28, "font-size": 14, fill: "#4d6b62" }, "Cả lớp");
+  const A = { cx: 215, cy: 130, rx: 125, ry: 92 }, B = { cx: 330, cy: 130, rx: 125, ry: 92 };
+  const base = (e, fill, stroke) => mk(svg, "ellipse", Object.assign({ fill, stroke, "stroke-width": 2.5 }, e));
+  if (hl === "union") { base(A, O, OS); base(B, O, OS); }
+  else if (hl === "onlyA") { base(A, O, OS); base(B, "#f8fbf7", "#286c89"); }
+  else if (hl === "onlyB") { base(B, O, OS); base(A, "#f8fbf7", "#30785b"); base(B, "none", "#286c89"); }
+  else { base(A, "#d3e8d6", "#30785b"); base(B, "#cbdfea", "#286c89"); if (hl === "inter") mk(svg, "ellipse", Object.assign({ fill: O, "clip-path": "url(#cb)" }, A)); mk(svg, "ellipse", Object.assign({ fill: "none", stroke: "#30785b", "stroke-width": 2.5 }, A)); mk(svg, "ellipse", Object.assign({ fill: "none", stroke: "#286c89", "stroke-width": 2.5 }, B)); }
+  if (hl === "onlyA") mk(svg, "ellipse", Object.assign({ fill: "none", stroke: "#30785b", "stroke-width": 2.5 }, A));
+  if (hl === "union") { mk(svg, "ellipse", Object.assign({ fill: "none", stroke: "#30785b", "stroke-width": 2.5 }, A)); }
+  const t = (x, y, s, size = 22, fill = "#18332e") => mk(svg, "text", { x, y, "text-anchor": "middle", "font-size": size, "font-weight": 700, fill }, s);
+  t(150, 33, "Nhóm A", 17, "#30785b"); t(395, 33, "Nhóm B", 17, "#286c89");
+  const Q = "?";
+  const v = vals || {};
+  t(150, 138, v.onlyA == null ? (hl === "onlyA" || hl === "union" ? Q : "") : v.onlyA);
+  t(272, 138, v.inter == null ? (hl === "inter" || hl === "union" ? "" : "") : v.inter);
+  t(395, 138, v.onlyB == null ? (hl === "onlyB" ? Q : "") : v.onlyB);
+  t(485, 215, v.out == null ? (hl === "out" ? Q : "") : v.out, 20);
+  if (hlText) mk(svg, "text", { x: 272, y: 232, "text-anchor": "middle", "font-size": 14, fill: "#873e12", "font-weight": 700 }, hlText);
+}
+
+function startRound() {
+  cur = rounds[idx]; tries = 0;
+  const r = cur, [a, b] = r.th;
+  $("hRound").textContent = `Nhiệm vụ ${idx + 1} / ${rounds.length}`; $("hScore").textContent = `Điểm: ${score}`;
+  $("prog").style.width = (idx / rounds.length * 100) + "%";
+  ["fb", "exp", "area"].forEach(i => $(i).replaceChildren()); $("next").hidden = true;
+  SM.steps($("stepper"), ["Dự đoán", "Tính", "Giải thích"], 0);
+  if (r.type === "move") return startMove();
+  const given = {
+    union: `n(A) = ${r.x}, n(B) = ${r.y}, n(A ∩ B) = ${r.z}`, outside: `n(A) = ${r.x}, n(B) = ${r.y}, n(A ∩ B) = ${r.z}`,
+    onlyA: `n(A) = ${r.x}, n(A ∩ B) = ${r.z}`, onlyB: `n(B) = ${r.y}, n(A ∩ B) = ${r.z}`, findInter: `n(A) = ${r.x}, n(B) = ${r.y}, n(A ∪ B) = ${r.u}`
+  }[r.type];
+  $("story").innerHTML = `Lớp có <b>${r.N}</b> học sinh. Nhóm A: các em ${a}. Nhóm B: các em ${b}.<br><b>${given}</b>.`;
+  const hl = { union: "union", outside: "out", onlyA: "onlyA", onlyB: "onlyB", findInter: "inter" }[r.type];
+  drawVenn(hl, r.type === "findInter" ? { out: r.out } : null);
+  const total = r.x + r.y;
+  let correct = r.z > 0 ? 0 : 1, labels = [["nhỏ hơn (vì các em thuộc cả hai nhóm bị đếm hai lần)", 0], ["bằng (không em nào thuộc cả hai nhóm)", 1], ["lớn hơn", 2]];
+  if (r.type === "findInter") {
+    $("question").innerHTML = `<b>Dự đoán:</b> n(A) + n(B) = ${total} nhưng n(A ∪ B) chỉ là ${r.u}. Vậy số em thuộc cả hai nhóm…`;
+    correct = 0; labels = [["lớn hơn 0 (một số em bị đếm hai lần)", 0], ["bằng 0", 1], ["lớn hơn cả n(A)", 2]];
+  } else $("question").innerHTML = `<b>Dự đoán:</b> số em thuộc ít nhất một nhóm, n(A ∪ B), so với tổng n(A) + n(B) sẽ…`;
+  const box = el("div", "opts");
+  labels.forEach(([t, i]) => {
+    const bt = el("button", "opt", t); box.append(bt);
+    bt.onclick = () => {
+      [...box.children].forEach((c, j) => { c.disabled = true; if (j === correct) c.classList.add("right"); else if (j === i) c.classList.add("wrong"); });
+      const ok = i === correct; SM.beep(ok); if (ok) score++; $("hScore").textContent = `Điểm: ${score}`;
+      if (!ok) mistakes.push(`Nhiệm vụ ${idx + 1}: n(A ∪ B) = n(A) + n(B) − n(A ∩ B), nên nhỏ hơn n(A) + n(B) khi có phần giao.`);
+      $("fb").replaceChildren(el("div", "fb " + (ok ? "ok" : "no"), (ok ? "Đúng! " : "Chưa đúng. ") + (r.type === "findInter" ? `Tổng ${total} vượt ${r.u}, phần dư chính là số em bị đếm hai lần.` : r.z > 0 ? `Có ${r.z} em thuộc cả hai nhóm nên n(A) + n(B) = ${total} đếm trùng ${r.z} em.` : `Không có phần giao nên n(A ∪ B) = n(A) + n(B) = ${total}.`)));
+      setTimeout(compute, ok ? 600 : 1400);
+    };
+  });
+  $("area").replaceChildren(box);
+}
+function compute() {
+  const r = cur; SM.steps($("stepper"), ["Dự đoán", "Tính", "Giải thích"], 1);
+  const q = { union: "Có bao nhiêu em thuộc ít nhất một nhóm, tức n(A ∪ B)?", outside: "Có bao nhiêu em không thuộc nhóm nào?", onlyA: "Có bao nhiêu em chỉ thuộc nhóm A (không thuộc B)?", onlyB: "Có bao nhiêu em chỉ thuộc nhóm B (không thuộc A)?", findInter: "Có bao nhiêu em thuộc cả hai nhóm, tức n(A ∩ B)?" }[r.type];
+  $("question").innerHTML = "<b>Tính:</b> " + q;
+  const ans = { union: r.u, outside: r.out, onlyA: r.onlyA, onlyB: r.onlyB, findInter: r.z }[r.type];
+  const wrap = el("div", "row"), inp = el("input", "num"); inp.type = "text"; inp.inputMode = "numeric"; inp.placeholder = "Số em"; inp.setAttribute("aria-label", "Số em");
+  const go = el("button", "btn", "Kiểm tra"); wrap.append(inp, go); $("area").replaceChildren(wrap);
+  const check = () => {
+    const v = parse(inp.value); if (!isFinite(v)) { $("fb").replaceChildren(el("div", "fb info", "Hãy nhập một số nguyên.")); return; }
+    tries++;
+    if (v === ans) finish(tries === 1 ? 2 : 1, true, ans);
+    else if (tries === 1) { SM.beep(false); inp.select(); $("fb").replaceChildren(el("div", "fb no", "Chưa đúng. Gợi ý: n(A ∪ B) = n(A) + n(B) − n(A ∩ B), và cả lớp = các em trong hợp + các em ngoài hợp. Thử lại (còn 1 điểm).")); }
+    else finish(0, false, ans);
+  };
+  go.onclick = check; inp.onkeydown = e => { if (e.key === "Enter") check(); }; inp.focus();
+}
+function expText(r, ans) {
+  return {
+    union: [`n(A ∪ B) = n(A) + n(B) − n(A ∩ B)`, `= ${r.x} + ${r.y} − ${r.z} = <b>${r.u}</b>`],
+    outside: [`n(A ∪ B) = ${r.x} + ${r.y} − ${r.z} = ${r.u}`, `Ngoài hai nhóm: ${r.N} − ${r.u} = <b>${r.out}</b>`],
+    onlyA: [`Chỉ A = n(A) − n(A ∩ B)`, `= ${r.x} − ${r.z} = <b>${r.onlyA}</b> (không phải ${r.x} + ${r.z})`],
+    onlyB: [`Chỉ B = n(B) − n(A ∩ B)`, `= ${r.y} − ${r.z} = <b>${r.onlyB}</b>`],
+    findInter: [`n(A ∪ B) = n(A) + n(B) − n(A ∩ B) nên n(A ∩ B) = n(A) + n(B) − n(A ∪ B)`, `= ${r.x} + ${r.y} − ${r.u} = <b>${r.z}</b>`]
+  }[r.type];
+}
+function finish(pts, ok, ans) {
+  const r = cur; SM.steps($("stepper"), ["Dự đoán", "Tính", "Giải thích"], 2);
+  score += pts; $("hScore").textContent = `Điểm: ${score}`; SM.beep(ok);
+  [...$("area").querySelectorAll("input,button")].forEach(x => x.disabled = true);
+  const hl = { union: "union", outside: "out", onlyA: "onlyA", onlyB: "onlyB", findInter: "inter" }[r.type];
+  drawVenn(null, { onlyA: r.onlyA, inter: r.z, onlyB: r.onlyB, out: r.out }, `Cả lớp ${r.N} = ${r.onlyA} + ${r.z} + ${r.onlyB} + ${r.out}`);
+  const e = el("div", "exp"); e.innerHTML = "<div><b>Lời giải:</b></div>" + expText(r, ans).map(s => `<div>${s}</div>`).join("");
+  $("exp").replaceChildren(e);
+  $("fb").replaceChildren(el("div", "fb " + (ok ? "ok" : "no"), ok ? (pts === 2 ? "Chính xác! +2 điểm." : "Em đã tự sửa được! +1 điểm.") : `Chưa đúng, đáp số là ${ans}. Đọc lời giải nhé.`));
+  if (!ok) mistakes.push(`Nhiệm vụ ${idx + 1}: ` + expText(r, ans).join(" ").replace(/<\/?b>/g, ""));
+  nextBtn();
+}
+/* nhiệm vụ chuyển thẻ */
+function startMove() {
+  const r = cur, [a, b] = r.th, m = r.m, inter = r.z;
+  $("story").innerHTML = `Lớp có <b>${r.N}</b> học sinh. Hiện có ${r.onlyA} em chỉ ${a}, ${inter} em ${a} và ${b}, ${r.onlyB} em chỉ ${b}, ${r.out} em không thuộc nhóm nào.<br>Đội trưởng <b>chuyển ${m} em từ miền "chỉ A" sang phần giao</b> (các em đó cũng ${b}).`;
+  drawVenn(null, { onlyA: r.onlyA, inter, onlyB: r.onlyB, out: r.out });
+  const Q = { A: ["n(A)", 1, "Giữ nguyên", "A gồm miền chỉ A và phần giao, chuyển thẻ giữa hai miền này không làm A đổi."], B: ["n(B)", 0, `Tăng ${m}`, `B gồm phần giao và miền chỉ B; phần giao tăng ${m} nên n(B) tăng ${m}.`], I: ["n(A ∩ B)", 0, `Tăng ${m}`, `${m} thẻ mới vào phần giao.`], U: ["n(A ∪ B)", 1, "Giữ nguyên", "Các thẻ vẫn nằm trong hợp, chỉ đổi miền."], onlyA: ["số em chỉ thuộc A", 2, `Giảm ${m}`, `${m} thẻ rời miền chỉ A.`] }[r.q];
+  $("question").innerHTML = `<b>Dự đoán:</b> sau khi chuyển, ${Q[0]} sẽ…`;
+  const choices = ["Giữ nguyên", `Tăng ${m}`, `Giảm ${m}`], correct = choices.indexOf(Q[2]);
+  const box = el("div", "opts");
+  choices.forEach((t, i) => {
+    const bt = el("button", "opt", t); box.append(bt);
+    bt.onclick = () => {
+      [...box.children].forEach((c, j) => { c.disabled = true; if (j === correct) c.classList.add("right"); else if (j === i) c.classList.add("wrong"); });
+      const ok = i === correct; SM.beep(ok); score += ok ? 3 : 0; $("hScore").textContent = `Điểm: ${score}`;
+      SM.steps($("stepper"), ["Dự đoán", "Tính", "Giải thích"], 2);
+      drawVenn(null, { onlyA: r.onlyA - m, inter: inter + m, onlyB: r.onlyB, out: r.out }, `Sau khi chuyển ${m} em`);
+      $("fb").replaceChildren(el("div", "fb " + (ok ? "ok" : "no"), ok ? "Dự đoán đúng! +3 điểm." : "Chưa đúng, đối chiếu với sơ đồ mới bên trên."));
+      const e = el("div", "exp"); e.innerHTML = `<div><b>Lời giải:</b> ${Q[3]}</div><div>Trước: chỉ A = ${r.onlyA}, giao = ${inter}, chỉ B = ${r.onlyB}. Sau: chỉ A = ${r.onlyA - m}, giao = ${inter + m}, chỉ B = ${r.onlyB}. Hợp luôn bằng ${r.u}.</div>`;
+      $("exp").replaceChildren(e);
+      if (!ok) mistakes.push(`Nhiệm vụ ${idx + 1}: ${Q[0]} ${Q[2].toLowerCase()} khi chuyển ${m} em từ "chỉ A" sang phần giao. ${Q[3]}`);
+      nextBtn();
+    };
+  });
+  $("area").replaceChildren(box);
+}
+function nextBtn() { $("next").hidden = false; $("next").textContent = idx === rounds.length - 1 ? "Xem kết quả" : "Nhiệm vụ tiếp theo →"; $("next").focus(); }
+$("next").onclick = () => {
+  idx++;
+  if (idx >= rounds.length) { $("prog").style.width = "100%"; SM.end({ id: "doi-truong-venn", title: "Hoàn thành nhiệm vụ đội trưởng", score, max: rounds.length * 3, stars: SM.starsFor(score / (rounds.length * 3)), mistakes, again: begin }); }
+  else startRound();
+};
+function begin() { rounds = ORDER.map(makeRound); idx = 0; score = 0; mistakes = []; $("intro").hidden = true; $("play").hidden = false; startRound(); window.scrollTo(0, 0); }
+$("start").onclick = begin;
+</script></body></html>

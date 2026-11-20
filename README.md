@@ -7,11 +7,25 @@ Tên miền dự kiến: **https://smath.io.vn**
 
 ```
 index.html     Trang chủ: liệt kê, lọc theo chủ đề, liên kết tới từng trò
-games/         Các file HTML trò chơi (giữ nguyên nội dung gốc)
+games/         Các file HTML trò chơi (3 file SK_6 gốc giữ nguyên nội dung + 6 trò chơi mới)
+assets/        common.css, common.js dùng chung cho 6 trò chơi mới (âm thanh, lưu sao, màn kết quả)
 404.html       Trang báo lỗi khi gõ sai địa chỉ
 CNAME          Tên miền riêng cho GitHub Pages (smath.io.vn)
 .nojekyll      Cho GitHub Pages phục vụ file nguyên trạng
 ```
+
+## Trò chơi mới (xây theo quy trình Dự đoán, Kiểm tra, Giải thích, Vận dụng của sáng kiến SK_6)
+
+| Trò chơi | Chủ đề | Ý tưởng |
+|---|---|---|
+| Kho báu côsin | Hệ thức lượng | Đoán BC dài hơn hay ngắn hơn, rồi tính BC hoặc góc A |
+| Robot vectơ | Vectơ | Đoán hướng và độ dài, chọn k để robot tới pin |
+| Đội trưởng Venn | Mệnh đề và tập hợp | Hợp, giao, chỉ một nhóm, chuyển thẻ giữa các miền |
+| Thợ săn phản ví dụ | Mệnh đề và tập hợp | Mệnh đề, mệnh đề đảo, chọn thẻ số làm phản ví dụ |
+| Thám tử bắt lỗi | Cả 3 chủ đề | Tìm dòng sai trong lời giải, chọn lý do |
+| Thử thách 60 giây | Cả 3 chủ đề | Câu hỏi ngẫu nhiên, combo nhân điểm |
+
+Điểm cao và số sao được lưu ngay trên trình duyệt của học sinh (localStorage), không cần tài khoản, và hiện trên trang chủ.
 
 ## Thêm trò chơi mới
 
